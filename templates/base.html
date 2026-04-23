@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Control Escolar{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/webp" href="{{ url_for('static', filename='logo.webp') }}">
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome via CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deepBlue: '#2E3192',
+                        emeraldGreen: '#009245',
+                        goldenYellow: '#FFDE17',
+                        skyBlue: '#3FA9F5',
+                        charcoal: '#2B2B2B',
+                        offWhite: '#F4F4F4',
+                        institutionalBlue: '#2E3192',
+                        institutionalGreen: '#009245',
+                        institutionalGold: '#FFDE17',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-offWhite min-h-screen font-sans flex flex-col text-charcoal">
+    
+    <!-- Navbar -->
+    <nav class="bg-deepBlue text-white shadow-lg p-4 mb-8">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold flex items-center">
+                <div class="bg-white p-1 rounded-full mr-3 shadow-md border-2 border-goldenYellow flex items-center justify-center">
+                    <img src="{{ url_for('static', filename='logo.webp') }}" alt="Logo" class="h-8 w-8 object-contain">
+                </div>
+                Colegio Insurgentes
+            </a>
+            <div class="space-x-4 flex items-center">
+                {% if session.get('user_id') %}
+                    <span class="text-sm italic opacity-90">Bienvenido, {{ session.get('user_name') }}</span>
+                    <a href="/logout" class="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm transition-colors font-bold">Cerrar Sesión</a>
+                {% else %}
+                    <a href="/login" class="bg-goldenYellow text-charcoal px-4 py-2 rounded font-bold hover:bg-yellow-400 transition-colors">Iniciar Sesión</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 pb-12">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded-lg shadow-md {% if category == 'error' %}bg-red-100 text-red-700 border-l-4 border-red-500{% else %}bg-green-100 text-green-700 border-l-4 border-green-500{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 bg-white border-t text-center text-gray-500 text-sm">
+        &copy; 2026 Sistema de Control Escolar - SEP NEM Model
+    </footer>
+
+    <script>
+    function filterTable() {
+        const input = document.getElementById("searchInput");
+        if (!input) return;
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("dataTable");
+        if (!table) return;
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            let found = false;
+            const td = tr[i].getElementsByTagName("td");
+            for (let j = 0; j < td.length; j++) {
+                if (td[j]) {
+                    const textValue = td[j].textContent || td[j].innerText;
+                    if (textValue.toUpperCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            tr[i].style.display = found ? "" : "none";
+        }
+    }
+    </script>
+</body>
+</html>

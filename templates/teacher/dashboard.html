@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Panel del Profesor - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-800">Panel del Profesor</h1>
+    {% if assignment %}
+    <p class="text-gray-600">Asignado a: <span class="font-bold text-institutionalBlue">{{ assignment.grade }}° "{{ assignment.group }}"</span></p>
+    {% if active_period %}
+    <p class="text-sm text-gray-500 mt-1">Periodo Actual: <span class="px-2 py-0.5 bg-sky-100 text-sky-800 rounded-full font-bold text-[10px] uppercase">{{ active_period.name }}</span></p>
+    {% endif %}
+    {% endif %}
+</div>
+
+{% if not assignment %}
+<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow">
+    <p class="font-bold">Sin Asignación</p>
+    <p>Aún no tienes un grupo asignado. Por favor, solicita a la administración que te vincule a un grado y grupo.</p>
+</div>
+{% else %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <a href="{{ url_for('teacher.manage_attendance') }}" class="bg-white p-6 rounded-lg shadow-md border-t-4 border-emeraldGreen hover:shadow-lg transition-shadow text-center ring-1 ring-skyBlue ring-opacity-20">
+        <i class="fas fa-tasks text-4xl mb-2 text-emeraldGreen block"></i>
+        <h3 class="font-bold text-charcoal text-xl">Pasar Asistencia</h3>
+        <p class="text-gray-500 text-sm mt-2">Registra la asistencia del día</p>
+    </a>
+    <a href="{{ url_for('teacher.manage_activities') }}" class="bg-white p-6 rounded-lg shadow-md border-t-4 border-deepBlue hover:shadow-lg transition-shadow text-center ring-1 ring-skyBlue ring-opacity-20">
+        <i class="fas fa-bullseye text-4xl mb-2 text-deepBlue block"></i>
+        <h3 class="font-bold text-charcoal text-xl">Actividades</h3>
+        <p class="text-gray-500 text-sm mt-2">Crea tareas y exámenes</p>
+    </a>
+    <a href="{{ url_for('teacher.gradebook') }}" class="bg-white p-6 rounded-lg shadow-md border-t-4 border-goldenYellow hover:shadow-lg transition-shadow text-center ring-1 ring-skyBlue ring-opacity-20">
+        <i class="fas fa-chart-line text-4xl mb-2 text-goldenYellow block"></i>
+        <h3 class="font-bold text-charcoal text-xl">Calificaciones</h3>
+        <p class="text-gray-500 text-sm mt-2">Captura de puntajes</p>
+    </a>
+</div>
+
+<div class="bg-white p-8 rounded-lg shadow-lg ring-1 ring-skyBlue ring-opacity-20">
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 uppercase tracking-tight">Alumnos de mi Grupo ({{ students|length }})</h2>
+            <p class="text-gray-500 text-sm italic">Información general de contacto y CURP.</p>
+        </div>
+        <div class="relative w-full md:w-1/3">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar alumno..." class="w-full border-2 border-gray-100 rounded-lg py-2 pl-10 pr-4 focus:border-institutionalBlue outline-none transition-colors text-sm">
+            <span class="absolute left-3 top-2.5 text-gray-400">
+                <i class="fas fa-search"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" id="dataTable">
+            <thead>
+                <tr class="bg-gray-100 border-b">
+                    <th class="p-4 font-black text-gray-700 uppercase text-xs tracking-widest">CURP</th>
+                    <th class="p-4 font-black text-gray-700 uppercase text-xs tracking-widest">Nombre Completo</th>
+                    <th class="p-4 font-black text-gray-700 uppercase text-xs tracking-widest">Tutor / Contacto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr class="border-b hover:bg-gray-50 transition-colors">
+                    <td class="p-4 text-sm font-mono text-gray-600">{{ student.curp }}</td>
+                    <td class="p-4 font-bold text-gray-800">{{ student.full_name }}</td>
+                    <td class="p-4 text-sm text-gray-700">
+                        <div class="font-bold">{{ student.nombre_tutor or 'Sin tutor' }}</div>
+                        <div class="text-[10px] text-gray-500 italic">{{ student.telefono_tutor or '' }}</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

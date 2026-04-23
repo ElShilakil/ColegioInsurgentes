@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Actividades - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-deepBlue hover:underline flex items-center">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Panel
+    </a>
+    <h1 class="text-3xl font-bold text-charcoal mt-4 uppercase tracking-tight">Gestión de Actividades</h1>
+</div>
+
+<div class="flex flex-col lg:flex-row gap-8">
+    <!-- Activity Form -->
+    <div class="w-full lg:w-1/3">
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-deepBlue ring-1 ring-skyBlue ring-opacity-20">
+            <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Nueva Actividad / Examen</h2>
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">Materia</label>
+                    <select name="subject_id" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" required>
+                        <option value="">Selecciona una materia...</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}">{{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">Nombre de la Actividad</label>
+                    <input type="text" name="name" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" placeholder="Ej. Tarea 1, Examen Parcial" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Tipo</label>
+                        <select name="type" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" required>
+                            <option value="Tarea">Tarea</option>
+                            <option value="Examen">Examen</option>
+                            <option value="Proyecto">Proyecto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Valor (%)</label>
+                        <input type="number" name="percentage" step="0.1" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" placeholder="Ej. 10" required>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">Fecha</label>
+                    <input type="date" name="date" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" required>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button type="submit" class="w-full bg-emeraldGreen hover:bg-green-700 text-white font-black py-3 rounded shadow transition-colors uppercase tracking-widest text-sm">
+                        Crear Actividad
+                    </button>
+                    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded transition-colors uppercase tracking-widest text-sm">
+                        Regresar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Activities List -->
+    <div class="w-full lg:w-2/3">
+        <div class="bg-white p-6 rounded-lg shadow-md ring-1 ring-skyBlue ring-opacity-20">
+            <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Actividades Registradas</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-offWhite border-b border-skyBlue border-opacity-30">
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Nombre</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Tipo</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Fecha</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Valor (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in activities %}
+                        <tr class="border-b border-gray-50 hover:bg-offWhite transition-colors">
+                            <td class="p-4">
+                                <div class="font-bold text-charcoal">{{ activity.name }}</div>
+                                <div class="text-[10px] text-deepBlue font-black uppercase tracking-tighter">
+                                    {{ activity.subject.name }}
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="bg-skyBlue bg-opacity-10 text-deepBlue px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
+                                    {{ activity.type }}
+                                </span>
+                            </td>
+                            <td class="p-4 text-sm text-gray-500">{{ activity.date }}</td>
+                            <td class="p-4 font-black text-emeraldGreen">{{ activity.percentage_value }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

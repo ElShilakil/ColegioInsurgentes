@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Materias - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-8">
+    <!-- Registration Form -->
+    <div class="w-full lg:w-1/3">
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-institutionalBlue ring-1 ring-skyBlue ring-opacity-20">
+            <h2 class="text-xl font-bold mb-4 text-gray-800 uppercase tracking-tight">Nueva Materia (NEM)</h2>
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2 uppercase">Nombre de la Materia</label>
+                    <input type="text" name="name" class="w-full border rounded p-2 focus:ring-2 focus:ring-institutionalBlue outline-none" placeholder="Ej. Matemáticas" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2 uppercase">Campo Formativo</label>
+                    <select name="formative_field" class="w-full border rounded p-2" required>
+                        <option value="">Selecciona un campo...</option>
+                        {% for field in fields %}
+                        <option value="{{ field }}">{{ field }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button type="submit" class="w-full bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-2 rounded transition-colors uppercase tracking-widest text-sm">
+                        Registrar Materia
+                    </button>
+                    <a href="{{ url_for('admin.admin_dashboard') }}" class="w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded transition-colors uppercase tracking-widest text-sm">
+                        Regresar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Subjects List -->
+    <div class="w-full lg:w-2/3">
+        <div class="bg-white p-6 rounded-lg shadow-md ring-1 ring-skyBlue ring-opacity-20">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800 uppercase tracking-tight">Catálogo de Materias</h2>
+                <div class="relative w-1/2">
+                    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar materia..." class="w-full border-2 border-gray-100 rounded-lg py-2 pl-10 pr-4 focus:border-institutionalBlue outline-none transition-colors text-sm">
+                    <span class="absolute left-3 top-2.5 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="dataTable">
+                    <thead>
+                        <tr class="bg-gray-100 border-b">
+                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest">Materia</th>
+                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest">Campo Formativo</th>
+                            <th class="p-3 font-semibold text-gray-700 text-center uppercase text-xs tracking-widest">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject in subjects %}
+                        <tr class="border-b hover:bg-gray-50 transition-colors">
+                            <td class="p-3 font-bold text-gray-800">{{ subject.name }}</td>
+                            <td class="p-3">
+                                <span class="bg-blue-50 text-institutionalBlue text-[10px] px-2 py-1 rounded border border-institutionalBlue font-black uppercase">
+                                    {{ subject.formative_field }}
+                                </span>
+                            </td>
+                            <td class="p-3 text-center">
+                                <a href="{{ url_for('admin.edit_subject', id=subject.id) }}" class="text-institutionalBlue hover:text-blue-900 text-xs font-black uppercase tracking-widest underline">Editar</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

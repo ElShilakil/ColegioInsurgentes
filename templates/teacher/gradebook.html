@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Registro de Calificaciones - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-institutionalBlue hover:underline">&larr; Volver al Panel</a>
+    <h1 class="text-3xl font-bold text-gray-800 mt-4">Registro de Calificaciones</h1>
+</div>
+
+<div class="mb-6 flex items-center gap-4 bg-white p-4 rounded-lg shadow ring-1 ring-gray-200">
+    <label class="font-bold text-gray-700">Filtrar por Trimestre:</label>
+    <div class="flex gap-2">
+        {% for period in periods %}
+        <a href="{{ url_for('teacher.gradebook', period_id=period.id) }}" 
+           class="px-4 py-2 rounded-full text-sm font-bold transition-colors 
+                  {{ 'bg-institutionalBlue text-white shadow-md' if period.id == selected_period_id else 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+            {{ period.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-lg overflow-x-auto border-t-4 border-institutionalGold">
+    <form method="POST">
+        <table class="w-full text-left border-collapse min-w-max">
+            <thead>
+                <tr class="bg-gray-100 border-b">
+                    <th class="p-4 font-semibold text-gray-700 sticky left-0 bg-gray-100 border-r">Alumno</th>
+                    {% for activity in activities %}
+                    <th class="p-4 font-semibold text-gray-700 text-center border-r">
+                        <div class="text-xs uppercase text-institutionalBlue">{{ activity.subject.name }}</div>
+                        <div class="text-sm">{{ activity.name }}</div>
+                        <div class="text-xs text-gray-500">{{ activity.percentage_value }}%</div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-4 font-bold text-gray-800 sticky left-0 bg-white border-r">
+                        {{ student.full_name }}
+                    </td>
+                    {% for activity in activities %}
+                    <td class="p-4 text-center border-r">
+                        <input type="number" step="0.1" min="0" max="10" 
+                               name="score_{{ student.id }}_{{ activity.id }}" 
+                               value="{{ existing_grades.get((student.id, activity.id)) or '' }}"
+                               class="w-20 border rounded p-1 text-center focus:ring-2 focus:ring-institutionalGold outline-none"
+                               placeholder="0.0">
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="mt-8 flex justify-end gap-4">
+            <button type="submit" class="bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-3 px-10 rounded-lg shadow-md transition-colors">
+                Guardar Calificaciones
+            </button>
+            <a href="{{ url_for('teacher.teacher_dashboard') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-10 rounded-lg transition-colors">
+                Regresar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="mt-6 p-4 bg-blue-50 text-blue-700 rounded-lg text-sm italic">
+    * Las calificaciones deben estar en una escala del 0.0 al 10.0. Los campos vacíos no se guardarán.
+</div>
+{% endblock %}

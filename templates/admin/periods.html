@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Trimestres - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-center">
+    <div>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="text-deepBlue hover:underline">&larr; Volver al Panel</a>
+        <h1 class="text-3xl font-bold text-charcoal mt-4">Configuración de Trimestres</h1>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- List of Periods -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden ring-1 ring-skyBlue ring-opacity-30">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-offWhite border-b">
+                        <th class="p-4 font-bold text-charcoal">Nombre</th>
+                        <th class="p-4 font-bold text-charcoal text-center">Inicio</th>
+                        <th class="p-4 font-bold text-charcoal text-center">Fin</th>
+                        <th class="p-4 font-bold text-charcoal text-center">Estado</th>
+                        <th class="p-4 font-bold text-charcoal text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period in periods %}
+                    <tr class="border-b hover:bg-gray-50 transition-colors">
+                        <td class="p-4 font-bold text-deepBlue">{{ period.name }}</td>
+                        <td class="p-4 text-center text-charcoal">{{ period.start_date }}</td>
+                        <td class="p-4 text-center text-charcoal">{{ period.end_date }}</td>
+                        <td class="p-4 text-center">
+                            {% if period.is_active %}
+                            <span class="px-3 py-1 bg-emeraldGreen text-white text-xs font-black uppercase rounded-full">Activo</span>
+                            {% else %}
+                            <span class="px-3 py-1 bg-gray-200 text-gray-600 text-xs font-black uppercase rounded-full">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="editPeriod({{ period.id }}, '{{ period.name }}', '{{ period.start_date }}', '{{ period.end_date }}', {{ 'true' if period.is_active else 'false' }})" 
+                                    class="text-deepBlue hover:text-blue-800 font-bold text-sm">
+                                <i class="fas fa-edit mr-1"></i> Editar
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit/Add Form -->
+    <div class="lg:col-span-1">
+        <div class="bg-white p-6 rounded-lg shadow-lg ring-1 ring-skyBlue ring-opacity-30">
+            <h2 id="form-title" class="text-xl font-bold mb-6 text-charcoal">Actualizar Trimestre</h2>
+            <form method="POST">
+                <input type="hidden" name="period_id" id="period_id">
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Nombre</label>
+                    <input type="text" name="name" id="name" required 
+                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Inicio</label>
+                    <input type="date" name="start_date" id="start_date" required 
+                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Fin</label>
+                    <input type="date" name="end_date" id="end_date" required 
+                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
+                </div>
+                <div class="mb-6 flex items-center">
+                    <input type="checkbox" name="is_active" id="is_active" class="w-4 h-4 text-deepBlue border-gray-300 rounded focus:ring-deepBlue">
+                    <label class="ml-2 text-sm font-bold text-gray-700">Marcar como Trimestre Activo</label>
+                </div>
+                <button type="submit" class="w-full bg-deepBlue hover:bg-blue-900 text-white font-bold py-3 rounded-lg shadow-md transition-all">
+                    Guardar Cambios
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function editPeriod(id, name, start, end, active) {
+    document.getElementById('period_id').value = id;
+    document.getElementById('name').value = name;
+    document.getElementById('start_date').value = start;
+    document.getElementById('end_date').value = end;
+    document.getElementById('is_active').checked = active;
+    document.getElementById('form-title').innerText = 'Editar ' + name;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Estudiantes - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-8">
+    <!-- Registration Form -->
+    <div class="w-full lg:w-1/3">
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-emeraldGreen ring-1 ring-skyBlue ring-opacity-20">
+            <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Registrar Estudiante</h2>
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">Nombre(s)</label>
+                    <input type="text" name="first_name" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Apellido Paterno</label>
+                        <input type="text" name="last_name_paternal" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras" required>
+                    </div>
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Apellido Materno</label>
+                        <input type="text" name="last_name_maternal" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">CURP (Mandatorio)</label>
+                    <input type="text" name="curp" maxlength="18" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" pattern="[A-Z0-9]{18}" title="El CURP debe tener exactamente 18 caracteres alfanuméricos en mayúsculas" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-charcoal text-xs font-bold uppercase mb-2">Nombre del Tutor</label>
+                    <input type="text" name="nombre_tutor" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Teléfono Tutor</label>
+                        <input type="text" name="telefono_tutor" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Email Tutor</label>
+                        <input type="email" name="email_tutor" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Grado</label>
+                        <select name="grade" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" required>
+                            <option value="1">1°</option><option value="2">2°</option>
+                            <option value="3">3°</option><option value="4">4°</option>
+                            <option value="5">5°</option><option value="6">6°</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-charcoal text-xs font-bold uppercase mb-2">Grupo</label>
+                        <select name="group" class="w-full border-2 border-gray-100 rounded p-2 focus:border-emeraldGreen outline-none transition-colors" required>
+                            <option value="A">A</option><option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button type="submit" class="w-full bg-emeraldGreen hover:bg-green-700 text-white font-bold py-3 rounded shadow transition-colors uppercase tracking-widest text-sm">
+                        Registrar Estudiante
+                    </button>
+                    <a href="{{ url_for('admin.admin_dashboard') }}" class="w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded transition-colors uppercase tracking-widest text-sm">
+                        Regresar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Students List -->
+    <div class="w-full lg:w-2/3">
+        <div class="bg-white p-6 rounded-lg shadow-md ring-1 ring-skyBlue ring-opacity-20">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-charcoal uppercase tracking-tight">Listado de Estudiantes</h2>
+                <div class="relative w-1/2">
+                    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar estudiante..." class="w-full border-2 border-gray-100 rounded-lg py-2 pl-10 pr-4 focus:border-emeraldGreen outline-none transition-colors text-sm">
+                    <span class="absolute left-3 top-2.5 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="dataTable">
+                    <thead>
+                        <tr class="bg-offWhite border-b border-skyBlue border-opacity-30">
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">CURP</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Nombre</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest text-center">G/G</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest">Tutor</th>
+                            <th class="p-4 font-black text-charcoal uppercase text-xs tracking-widest text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="border-b border-gray-50 hover:bg-offWhite transition-colors">
+                            <td class="p-4 text-xs font-mono text-gray-500">{{ student.curp }}</td>
+                            <td class="p-4 text-sm font-bold text-charcoal">{{ student.full_name }}</td>
+                            <td class="p-4 text-center">
+                                <span class="text-xs font-black bg-skyBlue bg-opacity-10 text-deepBlue px-2 py-1 rounded">
+                                    {{ student.grade }}°{{ student.group }}
+                                </span>
+                            </td>
+                            <td class="p-4 text-sm text-gray-700 font-bold">
+                                <div>{{ student.nombre_tutor or 'N/A' }}</div>
+                                <div class="text-[10px] text-gray-500 italic">{{ student.telefono_tutor or '' }}</div>
+                            </td>
+                            <td class="p-4 text-center flex gap-2 justify-center">
+                                <a href="{{ url_for('admin.edit_student', id=student.id) }}" class="text-emeraldGreen hover:text-green-800 text-xs font-black uppercase tracking-widest flex items-center">
+                                    <i class="fas fa-edit mr-1"></i> Editar
+                                </a>
+                                <a href="{{ url_for('admin.toggle_student', id=student.id) }}" class="text-red-600 hover:text-red-800 text-xs font-black uppercase tracking-widest flex items-center" onclick="return confirm('¿Estás seguro de eliminar a este estudiante?')">
+                                    <i class="fas fa-trash mr-1"></i> Eliminar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

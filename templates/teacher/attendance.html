@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Asistencia - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-institutionalBlue hover:underline">&larr; Volver al Panel</a>
+    <h1 class="text-3xl font-bold text-gray-800 mt-4">Control de Asistencia</h1>
+</div>
+
+<div class="bg-white p-8 rounded-lg shadow-lg border-t-4 border-institutionalGreen">
+    <form method="POST">
+        <div class="mb-6 flex flex-wrap items-center gap-6 p-4 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2">
+                <label class="font-bold text-gray-700">Fecha de Registro:</label>
+                <input type="date" name="date" value="{{ selected_date }}" class="border rounded p-2 focus:ring-2 focus:ring-institutionalGreen outline-none" onchange="window.location.href='{{ url_for('teacher.manage_attendance') }}?date=' + this.value">
+            </div>
+            <div class="flex gap-4 text-xs font-bold uppercase tracking-wider">
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> Asistencia</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> Falta</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-yellow-500"></span> Retardo</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Justificada</span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto mb-8">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-100 border-b">
+                        <th class="p-4 font-semibold text-gray-700">Alumno</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center">Asistencia</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center">Falta</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center">Retardo</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center">Justificada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr class="border-b hover:bg-gray-50 transition-colors">
+                        <td class="p-4 font-medium text-gray-800">{{ student.full_name }}</td>
+                        <td class="p-4 text-center">
+                            <input type="radio" name="status_{{ student.id }}" value="Asistencia" class="w-5 h-5 accent-green-500" 
+                                   {% if current_att.get(student.id) == 'Asistencia' or (not current_att.get(student.id) and not selected_date_is_past) %}checked{% endif %}>
+                        </td>
+                        <td class="p-4 text-center">
+                            <input type="radio" name="status_{{ student.id }}" value="Falta" class="w-5 h-5 accent-red-500"
+                                   {% if current_att.get(student.id) == 'Falta' %}checked{% endif %}>
+                        </td>
+                        <td class="p-4 text-center">
+                            <input type="radio" name="status_{{ student.id }}" value="Retardo" class="w-5 h-5 accent-yellow-500"
+                                   {% if current_att.get(student.id) == 'Retardo' %}checked{% endif %}>
+                        </td>
+                        <td class="p-4 text-center">
+                            <input type="radio" name="status_{{ student.id }}" value="Falta Justificada" class="w-5 h-5 accent-blue-500"
+                                   {% if current_att.get(student.id) == 'Falta Justificada' %}checked{% endif %}>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+            <button type="submit" class="w-full sm:w-1/3 bg-institutionalGreen hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-sm">
+                Guardar Asistencia
+            </button>
+            <a href="{{ url_for('teacher.teacher_dashboard') }}" class="w-full sm:w-1/3 text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-lg transition-colors uppercase tracking-widest text-sm">
+                Regresar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

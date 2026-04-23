@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Materia - Control Escolar{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-lg border-t-4 border-institutionalBlue">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.manage_subjects') }}" class="text-institutionalBlue hover:underline">&larr; Volver</a>
+        <h1 class="text-2xl font-bold text-gray-800 mt-2">Editar Materia</h1>
+    </div>
+
+    <form method="POST">
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Nombre de la Materia</label>
+            <input type="text" name="name" value="{{ subject.name }}" class="w-full border rounded p-2 focus:ring-2 focus:ring-institutionalBlue outline-none" required>
+        </div>
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Campo Formativo</label>
+            <select name="formative_field" class="w-full border rounded p-2" required>
+                {% for field in fields %}
+                <option value="{{ field }}" {% if subject.formative_field == field %}selected{% endif %}>{{ field }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="flex gap-4">
+            <button type="submit" class="flex-1 bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-2 rounded transition-colors">
+                Guardar Cambios
+            </button>
+            <a href="{{ url_for('admin.manage_subjects') }}" class="flex-1 text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded transition-colors">
+                Regresar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
