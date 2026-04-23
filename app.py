@@ -20,10 +20,12 @@ def create_app():
     from blueprints.auth import auth_bp
     from blueprints.admin import admin_bp
     from blueprints.teacher import teacher_bp
+    from blueprints.calendar_api import calendar_api_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(teacher_bp)
+    app.register_blueprint(calendar_api_bp)
 
     return app
 

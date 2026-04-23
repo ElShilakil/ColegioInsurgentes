@@ -1,10 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
-from models import Student, TeacherAssignment, Activity, Grade, Attendance, Subject, SchoolPeriod
+from models import Student, TeacherAssignment, Activity, Grade, Attendance, Subject, Trimester, SchoolCycle
 from decorators import login_required
-from datetime import datetime
+from datetime import datetime, date
 
 teacher_bp = Blueprint('teacher', __name__, url_prefix='/teacher')
+
+def get_current_trimester():
+    """Obtiene el trimestre marcado como activo manualmente."""
+    return Trimester.query.filter_by(is_active=True).first()
 
 @teacher_bp.route('/dashboard')
 @login_required(permission='VIEW_TEACHER_DASHBOARD')
@@ -17,7 +21,7 @@ def teacher_dashboard():
     students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
     
-    active_period = SchoolPeriod.query.filter_by(is_active=True).first()
+    active_period = get_current_trimester()
     return render_template('teacher/dashboard.html', 
                            assignment=assignment, 
                            students=students, 
@@ -38,7 +42,7 @@ def manage_attendance():
     if selected_date_str:
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     else:
-        selected_date = datetime.now().date()
+        selected_date = date.today()
     
     if request.method == 'POST':
         for student in students:
@@ -56,15 +60,15 @@ def manage_attendance():
         return redirect(url_for('teacher.manage_attendance', date=selected_date))
 
     current_att = {a.student_id: a.status for a in Attendance.query.filter_by(date=selected_date).all()}
-    selected_date_is_past = selected_date < datetime.now().date()
+    selected_date_is_past = selected_date < date.today()
     return render_template('teacher/attendance.html', students=students, selected_date=selected_date, current_att=current_att, selected_date_is_past=selected_date_is_past)
 
 @teacher_bp.route('/activities', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ACTIVITIES')
 def manage_activities():
-    active_period = SchoolPeriod.query.filter_by(is_active=True).first()
+    active_period = get_current_trimester()
     if not active_period:
-        flash("No hay un periodo escolar activo. Contacta al administrador.", "error")
+        flash("No hay un periodo escolar marcado como activo. Contacta al administrador.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
     if request.method == 'POST':
@@ -75,21 +79,25 @@ def manage_activities():
         percentage = request.form.get('percentage')
         activity_date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        if activity_date < active_period.start_date or activity_date > active_period.end_date:
-            flash(f"La fecha debe estar dentro del periodo activo ({active_period.name}: {active_period.start_date} a {active_period.end_date}).", "error")
-        else:
-            new_activity = Activity(
-                teacher_id=session['user_id'],
-                subject_id=subject_id,
-                period_id=active_period.id,
-                name=name,
-                type=type,
-                date=activity_date,
-                percentage_value=float(percentage)
-            )
-            db.session.add(new_activity)
-            db.session.commit()
-            flash("Actividad creada con éxito.", "success")
+        # Validación de fechas contra el rango del trimestre activo (si las fechas están definidas)
+        if active_period.start_date and active_period.end_date:
+            if activity_date < active_period.start_date or activity_date > active_period.end_date:
+                flash(f"La fecha de la actividad está fuera del rango de este trimestre ({active_period.start_date} a {active_period.end_date}).", "error")
+                return redirect(url_for('teacher.manage_activities'))
+
+        new_activity = Activity(
+            teacher_id=session['user_id'],
+            subject_id=subject_id,
+            trimester_id=active_period.id,
+            name=name,
+            type=type,
+            date=activity_date,
+            percentage_value=float(percentage)
+        )
+        db.session.add(new_activity)
+        db.session.commit()
+        flash("Actividad creada con éxito.", "success")
+        return redirect(url_for('teacher.manage_activities'))
     
     subjects = Subject.query.all()
     activities = Activity.query.filter_by(teacher_id=session['user_id']).order_by(Activity.date.desc()).all()
@@ -103,17 +111,17 @@ def gradebook():
         flash("No tienes un grupo asignado.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
-    periods = SchoolPeriod.query.order_by(SchoolPeriod.start_date).all()
-    active_period = SchoolPeriod.query.filter_by(is_active=True).first()
+    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.id.desc(), Trimester.id).all()
+    active_period = get_current_trimester()
     
-    selected_period_id = request.args.get('period_id', active_period.id if active_period else None)
+    selected_period_id = request.args.get('period_id', str(active_period.id) if active_period else (str(periods[0].id) if periods else None))
     
     students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
 
     activities_query = Activity.query.filter_by(teacher_id=session['user_id'])
     if selected_period_id:
-        activities_query = activities_query.filter_by(period_id=selected_period_id)
+        activities_query = activities_query.filter_by(trimester_id=int(selected_period_id))
     
     activities = activities_query.order_by(Activity.subject_id, Activity.date).all()
     

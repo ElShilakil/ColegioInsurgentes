@@ -1,5 +1,5 @@
 from extensions import db
-from datetime import datetime
+from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import UniqueConstraint
 
@@ -61,27 +61,47 @@ class Subject(db.Model):
     name = db.Column(db.String(100), nullable=False)
     formative_field = db.Column(db.String(100), nullable=False)
 
-class SchoolPeriod(db.Model):
-    __tablename__ = 'school_periods'
+class SchoolCycle(db.Model):
+    __tablename__ = 'school_cycles'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
+    name = db.Column(db.String(50), nullable=False, unique=True)
     is_active = db.Column(db.Boolean, default=False)
+    
+    trimesters = db.relationship('Trimester', backref='cycle', cascade="all, delete-orphan", order_by="Trimester.id")
+
+class Trimester(db.Model):
+    __tablename__ = 'trimesters'
+    id = db.Column(db.Integer, primary_key=True)
+    cycle_id = db.Column(db.Integer, db.ForeignKey('school_cycles.id'), nullable=False)
+    name = db.Column(db.String(50), nullable=False) # Ej: "Trimestre 1"
+    start_date = db.Column(db.Date, nullable=True) # En blanco al inicio
+    end_date = db.Column(db.Date, nullable=True)   # En blanco al inicio
+    is_active = db.Column(db.Boolean, default=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "cycle_id": self.cycle_id,
+            "cycle_name": self.cycle.name,
+            "name": self.name,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "is_active": self.is_active
+        }
 
 class Activity(db.Model):
     __tablename__ = 'activities'
     id = db.Column(db.Integer, primary_key=True)
     teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    period_id = db.Column(db.Integer, db.ForeignKey('school_periods.id'), nullable=False)
+    trimester_id = db.Column(db.Integer, db.ForeignKey('trimesters.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     type = db.Column(db.String(20), nullable=False)
-    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.Date, nullable=False, default=date.today)
     percentage_value = db.Column(db.Float, nullable=False)
 
     subject = db.relationship('Subject', backref='activities')
-    period = db.relationship('SchoolPeriod', backref='activities')
+    trimester = db.relationship('Trimester', backref='activities')
 
 class Grade(db.Model):
     __tablename__ = 'grades'
@@ -99,5 +119,5 @@ class Attendance(db.Model):
     __tablename__ = 'attendance'
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.Date, nullable=False, default=date.today)
     status = db.Column(db.String(20), nullable=False)

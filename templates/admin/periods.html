@@ -1,96 +1,154 @@
 {% extends "base.html" %}
 
-{% block title %}Configuración de Trimestres - Control Escolar{% endblock %}
+{% block title %}Gestión de Ciclos y Trimestres - Colegio Insurgentes{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-center">
-    <div>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="text-deepBlue hover:underline">&larr; Volver al Panel</a>
-        <h1 class="text-3xl font-bold text-charcoal mt-4">Configuración de Trimestres</h1>
-    </div>
+<div class="mb-8">
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="text-deepBlue hover:underline text-sm font-bold flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Panel de Control
+    </a>
+    <h1 class="text-4xl font-black text-charcoal mt-4 tracking-tighter uppercase">Calendario Académico</h1>
+    <p class="text-gray-500 font-medium text-sm">Gestiona ciclos y define fechas independientes para cada trimestre.</p>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- List of Periods -->
-    <div class="lg:col-span-2">
-        <div class="bg-white rounded-lg shadow-lg overflow-hidden ring-1 ring-skyBlue ring-opacity-30">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-offWhite border-b">
-                        <th class="p-4 font-bold text-charcoal">Nombre</th>
-                        <th class="p-4 font-bold text-charcoal text-center">Inicio</th>
-                        <th class="p-4 font-bold text-charcoal text-center">Fin</th>
-                        <th class="p-4 font-bold text-charcoal text-center">Estado</th>
-                        <th class="p-4 font-bold text-charcoal text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for period in periods %}
-                    <tr class="border-b hover:bg-gray-50 transition-colors">
-                        <td class="p-4 font-bold text-deepBlue">{{ period.name }}</td>
-                        <td class="p-4 text-center text-charcoal">{{ period.start_date }}</td>
-                        <td class="p-4 text-center text-charcoal">{{ period.end_date }}</td>
-                        <td class="p-4 text-center">
-                            {% if period.is_active %}
-                            <span class="px-3 py-1 bg-emeraldGreen text-white text-xs font-black uppercase rounded-full">Activo</span>
-                            {% else %}
-                            <span class="px-3 py-1 bg-gray-200 text-gray-600 text-xs font-black uppercase rounded-full">Inactivo</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="editPeriod({{ period.id }}, '{{ period.name }}', '{{ period.start_date }}', '{{ period.end_date }}', {{ 'true' if period.is_active else 'false' }})" 
-                                    class="text-deepBlue hover:text-blue-800 font-bold text-sm">
-                                <i class="fas fa-edit mr-1"></i> Editar
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+    <!-- Listado de Ciclos y Trimestres -->
+    <div class="lg:col-span-2 space-y-8">
+        <form method="POST">
+            <input type="hidden" name="action" value="set_active">
+            
+            {% for cycle in cycles %}
+            <div class="bg-white rounded-3xl shadow-xl overflow-hidden ring-1 {{ 'ring-emeraldGreen ring-opacity-50 shadow-emerald-100' if cycle.is_active else 'ring-gray-100' }} mb-8">
+                <div class="p-6 flex justify-between items-center {{ 'bg-emerald-50' if cycle.is_active else 'bg-gray-50' }} border-b border-gray-100">
+                    <h2 class="text-2xl font-black {{ 'text-emeraldGreen' if cycle.is_active else 'text-charcoal' }} tracking-tighter">
+                        CICLO {{ cycle.name }}
+                    </h2>
+                    {% if cycle.is_active %}
+                    <span class="flex items-center gap-2 px-4 py-2 bg-emeraldGreen text-white text-[10px] font-black uppercase rounded-full tracking-widest">
+                        Ciclo en curso
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="p-4">
+                    <table class="w-full">
+                        <tbody class="divide-y divide-gray-100">
+                            {% for t in cycle.trimesters %}
+                            <tr class="{{ 'bg-emerald-50/20' if t.is_active else '' }}">
+                                <td class="p-5 text-center w-20">
+                                    <label class="relative flex items-center justify-center cursor-pointer">
+                                        <input type="radio" name="active_trimester" value="{{ t.id }}" 
+                                               {{ 'checked' if t.is_active else '' }}
+                                               class="peer sr-only">
+                                        <div class="w-7 h-7 bg-white border-2 border-gray-200 rounded-full peer-checked:border-emeraldGreen peer-checked:bg-emeraldGreen transition-all"></div>
+                                        <svg class="absolute w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </label>
+                                </td>
+                                <td class="p-5">
+                                    <span class="text-lg font-black text-charcoal block tracking-tight">{{ t.name }}</span>
+                                    <span class="text-xs font-bold text-gray-400 uppercase tracking-tighter">
+                                        {% if t.start_date and t.end_date %}
+                                            {{ t.start_date.strftime('%d/%m/%Y') }} — {{ t.end_date.strftime('%d/%m/%Y') }}
+                                        {% else %}
+                                            <span class="text-red-400">Sin fechas definidas</span>
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="p-5 text-right">
+                                    <button type="button" 
+                                            onclick="editTrimesterDates({{ t.id }}, '{{ t.name }}', '{{ cycle.name }}', '{{ t.start_date if t.start_date else '' }}', '{{ t.end_date if t.end_date else '' }}')"
+                                            class="text-deepBlue hover:underline text-xs font-black uppercase tracking-widest">
+                                        Editar Fechas
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="sticky bottom-8 flex justify-center mt-10">
+                <button type="submit" class="bg-charcoal text-white px-10 py-5 rounded-2xl shadow-2xl hover:bg-black transition-all border-b-4 border-gray-800 active:border-b-0 active:translate-y-1">
+                    <span class="text-sm font-black uppercase tracking-widest">Activar Trimestre Seleccionado</span>
+                </button>
+            </div>
+        </form>
     </div>
 
-    <!-- Edit/Add Form -->
-    <div class="lg:col-span-1">
-        <div class="bg-white p-6 rounded-lg shadow-lg ring-1 ring-skyBlue ring-opacity-30">
-            <h2 id="form-title" class="text-xl font-bold mb-6 text-charcoal">Actualizar Trimestre</h2>
+    <!-- Panel Lateral -->
+    <div class="lg:col-span-1 space-y-8">
+        <!-- Nuevo Ciclo -->
+        <div class="bg-white p-8 rounded-3xl shadow-xl ring-1 ring-deepBlue ring-opacity-5 border-t-8 border-deepBlue">
+            <h3 class="text-xl font-black text-charcoal mb-2 uppercase tracking-tighter">Nuevo Ciclo</h3>
+            <p class="text-sm text-gray-400 font-medium mb-8 italic">* Solo permitido si el ciclo anterior ha concluido.</p>
+            
             <form method="POST">
-                <input type="hidden" name="period_id" id="period_id">
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Nombre</label>
-                    <input type="text" name="name" id="name" required 
-                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
+                <input type="hidden" name="action" value="setup_cycle">
+                <div class="mb-6">
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Nombre del Ciclo</label>
+                    <input type="text" name="name" placeholder="Ej: 2025-2026" required
+                           class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-deepBlue focus:bg-white outline-none font-bold text-lg text-charcoal">
                 </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Inicio</label>
-                    <input type="date" name="start_date" id="start_date" required 
-                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Fin</label>
-                    <input type="date" name="end_date" id="end_date" required 
-                           class="w-full border border-skyBlue border-opacity-30 rounded-lg p-3 focus:ring-2 focus:ring-deepBlue outline-none transition-all">
-                </div>
-                <div class="mb-6 flex items-center">
-                    <input type="checkbox" name="is_active" id="is_active" class="w-4 h-4 text-deepBlue border-gray-300 rounded focus:ring-deepBlue">
-                    <label class="ml-2 text-sm font-bold text-gray-700">Marcar como Trimestre Activo</label>
-                </div>
-                <button type="submit" class="w-full bg-deepBlue hover:bg-blue-900 text-white font-bold py-3 rounded-lg shadow-md transition-all">
-                    Guardar Cambios
+                <button type="submit" class="w-full bg-deepBlue text-white font-black py-5 rounded-2xl shadow-lg hover:bg-blue-900 transition-all uppercase tracking-widest text-xs">
+                    Crear Ciclo
                 </button>
+            </form>
+        </div>
+
+        <!-- Editor de Fechas de Trimestre -->
+        <div id="date-editor" class="hidden bg-white p-8 rounded-3xl shadow-xl ring-1 ring-goldenYellow ring-opacity-10 border-t-8 border-goldenYellow">
+            <h3 class="text-xl font-black text-charcoal mb-1 uppercase tracking-tighter">Editar Trimestre</h3>
+            <p id="edit-subtitle" class="text-xs font-bold text-deepBlue mb-8 uppercase tracking-widest"></p>
+            
+            <form method="POST">
+                <input type="hidden" name="action" value="edit_trimester_dates">
+                <input type="hidden" name="trimester_id" id="edit_trimester_id">
+                
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Inicio de Evaluación</label>
+                        <input type="date" name="start_date" id="edit_start_date" required
+                               class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-goldenYellow focus:bg-white outline-none font-bold text-charcoal">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Fin de Evaluación</label>
+                        <input type="date" name="end_date" id="edit_end_date" required
+                               class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-goldenYellow focus:bg-white outline-none font-bold text-charcoal">
+                    </div>
+                    
+                    <div class="flex gap-2 pt-4">
+                        <button type="button" onclick="hideEditor()" class="flex-1 bg-gray-100 text-gray-500 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-all uppercase text-xs">
+                            Cerrar
+                        </button>
+                        <button type="submit" class="flex-1 bg-goldenYellow text-white font-black py-4 rounded-2xl shadow-md hover:bg-yellow-600 transition-all uppercase text-xs">
+                            Actualizar
+                        </button>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-function editPeriod(id, name, start, end, active) {
-    document.getElementById('period_id').value = id;
-    document.getElementById('name').value = name;
-    document.getElementById('start_date').value = start;
-    document.getElementById('end_date').value = end;
-    document.getElementById('is_active').checked = active;
-    document.getElementById('form-title').innerText = 'Editar ' + name;
+function editTrimesterDates(id, name, cycle, start, end) {
+    document.getElementById('date-editor').classList.remove('hidden');
+    document.getElementById('edit-subtitle').innerText = name + ' — ' + cycle;
+    document.getElementById('edit_trimester_id').value = id;
+    document.getElementById('edit_start_date').value = start;
+    document.getElementById('edit_end_date').value = end;
+    window.scrollTo({ top: document.getElementById('date-editor').offsetTop - 50, behavior: 'smooth' });
+}
+
+function hideEditor() {
+    document.getElementById('date-editor').classList.add('hidden');
 }
 </script>
 {% endblock %}

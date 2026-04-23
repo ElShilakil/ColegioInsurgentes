@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
-from models import User, Student, TeacherAssignment, Subject, Grade, SchoolPeriod
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from extensions import db
+from models import User, Student, TeacherAssignment, Subject, Grade, Trimester, SchoolCycle
 from decorators import login_required
 from sqlalchemy.exc import IntegrityError
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -13,7 +15,7 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 def admin_dashboard():
     teacher_count = User.query.filter_by(role='teacher').count()
     student_count = Student.query.filter_by(is_active=True).count()
-    active_period = SchoolPeriod.query.filter_by(is_active=True).first()
+    active_period = Trimester.query.filter_by(is_active=True).first()
     return render_template('admin/dashboard.html', 
                            teacher_count=teacher_count, 
                            student_count=student_count, 
@@ -23,41 +25,87 @@ def admin_dashboard():
 @login_required(permission='MANAGE_ASSIGNMENTS') 
 def manage_periods():
     if request.method == 'POST':
-        period_id = request.form.get('period_id')
-        name = request.form.get('name')
-        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
-        end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d').date()
-        is_active = request.form.get('is_active') == 'on'
-
-        if start_date >= end_date:
-            flash("La fecha de inicio debe ser anterior a la fecha de fin.", "error")
-        else:
-            if is_active:
-                SchoolPeriod.query.update({SchoolPeriod.is_active: False})
+        action = request.form.get('action')
+        
+        if action == 'setup_cycle':
+            name = request.form.get('name')
             
-            if period_id:
-                period = SchoolPeriod.query.get(period_id)
-                period.name = name
-                period.start_date = start_date
-                period.end_date = end_date
-                period.is_active = is_active
-            else:
-                new_period = SchoolPeriod(name=name, start_date=start_date, end_date=end_date, is_active=is_active)
-                db.session.add(new_period)
+            # VALIDACIÓN ESTRICTA: Consultar Trimestre 3 del ciclo activo actual
+            active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+            if active_cycle:
+                # El tercer trimestre es el último (ordenado por ID)
+                t3 = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id.desc()).first()
+                if t3 and t3.end_date:
+                    if date.today() < t3.end_date:
+                        flash(f"No se puede crear un nuevo ciclo. El Trimestre 3 del ciclo {active_cycle.name} termina hasta el {t3.end_date.strftime('%d/%m/%Y')}.", "error")
+                        return redirect(url_for('admin.manage_periods'))
+
+            # Crear ciclo (fechas en blanco para trimestres)
+            new_cycle = SchoolCycle(name=name)
+            db.session.add(new_cycle)
+            
+            for i in range(1, 4):
+                t = Trimester(
+                    cycle=new_cycle,
+                    name=f"Trimestre {i}",
+                    is_active=False
+                )
+                db.session.add(t)
             
             db.session.commit()
-            flash("Periodo actualizado con éxito.", "success")
+            flash("Ciclo y trimestres vacíos creados con éxito.", "success")
+            
+        elif action == 'edit_trimester_dates':
+            trimester_id = request.form.get('trimester_id')
+            new_start = date.fromisoformat(request.form.get('start_date'))
+            new_end = date.fromisoformat(request.form.get('end_date'))
+            
+            if new_end <= new_start:
+                flash("Error: La fecha de fin debe ser posterior a la de inicio.", "error")
+                return redirect(url_for('admin.manage_periods'))
 
-    periods = SchoolPeriod.query.all()
-    if not periods:
-        p1 = SchoolPeriod(name="Trimestre 1", start_date=datetime(2023, 8, 28).date(), end_date=datetime(2023, 11, 24).date(), is_active=True)
-        p2 = SchoolPeriod(name="Trimestre 2", start_date=datetime(2023, 11, 27).date(), end_date=datetime(2024, 3, 8).date(), is_active=False)
-        p3 = SchoolPeriod(name="Trimestre 3", start_date=datetime(2024, 3, 11).date(), end_date=datetime(2024, 7, 12).date(), is_active=False)
-        db.session.add_all([p1, p2, p3])
-        db.session.commit()
-        periods = [p1, p2, p3]
+            t = Trimester.query.get(trimester_id)
+            if t:
+                # Obtener todos los trimestres del ciclo ordenados
+                all_t = Trimester.query.filter_by(cycle_id=t.cycle_id).order_by(Trimester.id).all()
+                idx = all_t.index(t)
 
-    return render_template('admin/periods.html', periods=periods)
+                # Validar contra el trimestre anterior (si existe)
+                if idx > 0:
+                    prev_t = all_t[idx-1]
+                    if prev_t.end_date and new_start <= prev_t.end_date:
+                        flash(f"Error: El {t.name} no puede iniciar antes o el mismo día que termina el {prev_t.name} ({prev_t.end_date.strftime('%d/%m/%Y')}).", "error")
+                        return redirect(url_for('admin.manage_periods'))
+
+                # Validar contra el trimestre siguiente (si existe)
+                if idx < len(all_t) - 1:
+                    next_t = all_t[idx+1]
+                    if next_t.start_date and new_end >= next_t.start_date:
+                        flash(f"Error: El {t.name} no puede terminar después o el mismo día que inicia el {next_t.name} ({next_t.start_date.strftime('%d/%m/%Y')}).", "error")
+                        return redirect(url_for('admin.manage_periods'))
+
+                t.start_date = new_start
+                t.end_date = new_end
+                db.session.commit()
+                flash(f"Fechas de {t.name} actualizadas correctamente.", "success")
+
+        elif action == 'set_active':
+            trimester_id = request.form.get('active_trimester')
+            if trimester_id:
+                selected_t = Trimester.query.get(trimester_id)
+                Trimester.query.filter_by(cycle_id=selected_t.cycle_id).update({Trimester.is_active: False})
+                selected_t.is_active = True
+                
+                SchoolCycle.query.update({SchoolCycle.is_active: False})
+                selected_t.cycle.is_active = True
+                
+                db.session.commit()
+                flash(f"{selected_t.name} del ciclo {selected_t.cycle.name} activado.", "success")
+
+        return redirect(url_for('admin.manage_periods'))
+
+    cycles = SchoolCycle.query.order_by(SchoolCycle.id.desc()).all()
+    return render_template('admin/periods.html', cycles=cycles)
 
 @admin_bp.route('/teachers', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_TEACHERS')
@@ -316,7 +364,7 @@ def list_reports():
 @login_required(permission='VIEW_REPORTS')
 def view_report_card(student_id):
     student = Student.query.get_or_404(student_id)
-    periods = SchoolPeriod.query.order_by(SchoolPeriod.start_date).all()
+    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.start_date.desc(), Trimester.id).all()
     grades = Grade.query.filter_by(student_id=student_id).all()
     
     subject_data = {}
@@ -325,8 +373,10 @@ def view_report_card(student_id):
     for g in grades:
         activity = g.activity
         subj = activity.subject
-        period_id = activity.period_id
+        trimester_id = activity.trimester_id
         
+        if trimester_id is None: continue
+
         if subj.id not in subject_data:
             subject_data[subj.id] = {
                 'name': subj.name,
@@ -337,14 +387,14 @@ def view_report_card(student_id):
         if subj.id not in grouped_scores:
             grouped_scores[subj.id] = {}
         
-        if period_id not in grouped_scores[subj.id]:
-            grouped_scores[subj.id][period_id] = []
+        if trimester_id not in grouped_scores[subj.id]:
+            grouped_scores[subj.id][trimester_id] = []
             
-        grouped_scores[subj.id][period_id].append(g.score)
+        grouped_scores[subj.id][trimester_id].append(g.score)
         
     for subj_id, periods_scores in grouped_scores.items():
-        for period_id, scores in periods_scores.items():
-            subject_data[subj_id]['averages'][period_id] = sum(scores) / len(scores) if scores else 0
+        for t_id, scores in periods_scores.items():
+            subject_data[subj_id]['averages'][t_id] = sum(scores) / len(scores) if scores else 0
             
     field_data = {}
     formative_fields = [
