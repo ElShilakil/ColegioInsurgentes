@@ -364,7 +364,7 @@ def list_reports():
 @login_required(permission='VIEW_REPORTS')
 def view_report_card(student_id):
     student = Student.query.get_or_404(student_id)
-    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.start_date.desc(), Trimester.id).all()
+    periods = Trimester.query.join(SchoolCycle).order_by(Trimester.start_date.desc(), Trimester.id).all()
     grades = Grade.query.filter_by(student_id=student_id).all()
     
     subject_data = {}
@@ -394,7 +394,11 @@ def view_report_card(student_id):
         
     for subj_id, periods_scores in grouped_scores.items():
         for t_id, scores in periods_scores.items():
-            subject_data[subj_id]['averages'][t_id] = sum(scores) / len(scores) if scores else 0
+            if scores:
+                subject_data[subj_id]['averages'][t_id] = sum(scores) / len(scores)
+            else:
+                # Si no hay calificaciones para este trimestre, no incluimos la entrada
+                pass
             
     field_data = {}
     formative_fields = [

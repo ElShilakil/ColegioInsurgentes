@@ -22,10 +22,24 @@ def teacher_dashboard():
     students = sorted(students, key=lambda x: x.last_name_paternal)
     
     active_period = get_current_trimester()
+    
+    # Cálculo de faltas por alumno en el trimestre activo
+    absences_by_student = {}
+    if active_period:
+        for student in students:
+            faltas = Attendance.query.filter(
+                Attendance.student_id == student.id,
+                Attendance.status.in_(["Falta", "Ausente"]),
+                Attendance.date >= active_period.start_date,
+                Attendance.date <= active_period.end_date
+            ).count()
+            absences_by_student[student.id] = faltas
+
     return render_template('teacher/dashboard.html', 
                            assignment=assignment, 
                            students=students, 
-                           active_period=active_period)
+                           active_period=active_period,
+                           absences_by_student=absences_by_student)
 
 @teacher_bp.route('/attendance', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ATTENDANCE')
@@ -43,9 +57,27 @@ def manage_attendance():
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     else:
         selected_date = date.today()
+
+    active_period = get_current_trimester()
+    attendance_summaries = {}
+    if active_period:
+        for student in students:
+            # Resumen de asistencias del trimestre activo
+            atts = Attendance.query.filter(
+                Attendance.student_id == student.id,
+                Attendance.date >= active_period.start_date,
+                Attendance.date <= active_period.end_date
+            ).all()
+            
+            summary = {"Asistencia": 0, "Falta": 0, "Retardo": 0, "Falta Justificada": 0}
+            for a in atts:
+                if a.status in summary:
+                    summary[a.status] += 1
+            attendance_summaries[student.id] = summary
     
     if request.method == 'POST':
         for student in students:
+            # Captura el estado enviado por el radio button
             status = request.form.get(f'status_{student.id}')
             if status:
                 att = Attendance.query.filter_by(student_id=student.id, date=selected_date).first()
@@ -59,9 +91,15 @@ def manage_attendance():
         flash(f"Asistencia del {selected_date} guardada con éxito.", "success")
         return redirect(url_for('teacher.manage_attendance', date=selected_date))
 
+    # Obtenemos asistencias existentes
     current_att = {a.student_id: a.status for a in Attendance.query.filter_by(date=selected_date).all()}
     selected_date_is_past = selected_date < date.today()
-    return render_template('teacher/attendance.html', students=students, selected_date=selected_date, current_att=current_att, selected_date_is_past=selected_date_is_past)
+    return render_template('teacher/attendance.html', 
+                           students=students, 
+                           selected_date=selected_date, 
+                           current_att=current_att, 
+                           selected_date_is_past=selected_date_is_past,
+                           attendance_summaries=attendance_summaries)
 
 @teacher_bp.route('/activities', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ACTIVITIES')
@@ -76,14 +114,27 @@ def manage_activities():
         name = request.form.get('name')
         type = request.form.get('type')
         date_str = request.form.get('date')
-        percentage = request.form.get('percentage')
+        percentage = float(request.form.get('percentage'))
         activity_date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        # Validación de fechas contra el rango del trimestre activo (si las fechas están definidas)
+        # Validación de fechas contra el rango del trimestre activo
         if active_period.start_date and active_period.end_date:
             if activity_date < active_period.start_date or activity_date > active_period.end_date:
-                flash(f"La fecha de la actividad está fuera del rango de este trimestre ({active_period.start_date} a {active_period.end_date}).", "error")
+                flash(f"La fecha de la actividad está fuera del rango de este trimestre.", "error")
                 return redirect(url_for('teacher.manage_activities'))
+
+        # Validación de porcentajes por Materia
+        current_sum = db.session.query(db.func.sum(Activity.percentage_value)).filter(
+            Activity.subject_id == subject_id,
+            Activity.trimester_id == active_period.id,
+            Activity.teacher_id == session['user_id']
+        ).scalar() or 0.0
+        
+        available = 100.0 - current_sum
+        if percentage > available:
+            overage = percentage - available
+            flash(f"Error: Solo te queda {available}% disponible en esta materia. Al intentar agregar {percentage}%, te has pasado por {overage}%.", "error")
+            return redirect(url_for('teacher.manage_activities'))
 
         new_activity = Activity(
             teacher_id=session['user_id'],
@@ -92,7 +143,7 @@ def manage_activities():
             name=name,
             type=type,
             date=activity_date,
-            percentage_value=float(percentage)
+            percentage_value=percentage
         )
         db.session.add(new_activity)
         db.session.commit()
