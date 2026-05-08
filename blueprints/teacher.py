@@ -154,6 +154,61 @@ def manage_activities():
     activities = Activity.query.filter_by(teacher_id=session['user_id']).order_by(Activity.date.desc()).all()
     return render_template('teacher/activities.html', subjects=subjects, activities=activities, active_period=active_period)
 
+@teacher_bp.route('/activities/edit/<int:id>', methods=['POST'])
+@login_required(permission='MANAGE_ACTIVITIES')
+def edit_activity(id):
+    activity = Activity.query.get_or_404(id)
+    if activity.teacher_id != session['user_id']:
+        flash("No tienes permiso para editar esta actividad.", "error")
+        return redirect(url_for('teacher.manage_activities'))
+    
+    name = request.form.get('name')
+    percentage = float(request.form.get('percentage'))
+    
+    # Validar porcentaje disponible (excluyendo la actividad actual)
+    current_sum = db.session.query(db.func.sum(Activity.percentage_value)).filter(
+        Activity.subject_id == activity.subject_id,
+        Activity.trimester_id == activity.trimester_id,
+        Activity.teacher_id == session['user_id'],
+        Activity.id != id
+    ).scalar() or 0.0
+    
+    available = round(100.0 - current_sum, 2)
+    if percentage > available:
+        flash(f"Error: Solo queda {available}% disponible en esta materia.", "error")
+        return redirect(url_for('teacher.manage_activities'))
+    
+    try:
+        activity.name = name
+        activity.percentage_value = percentage
+        db.session.commit()
+        flash("Actividad actualizada con éxito.", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Error al actualizar la actividad.", "error")
+        
+    return redirect(url_for('teacher.manage_activities'))
+
+@teacher_bp.route('/activities/delete/<int:id>', methods=['POST'])
+@login_required(permission='MANAGE_ACTIVITIES')
+def delete_activity(id):
+    activity = Activity.query.get_or_404(id)
+    if activity.teacher_id != session['user_id']:
+        flash("No tienes permiso para eliminar esta actividad.", "error")
+        return redirect(url_for('teacher.manage_activities'))
+    
+    try:
+        # Borrado de calificaciones asociadas (Manejo seguro de relación)
+        Grade.query.filter_by(activity_id=id).delete()
+        db.session.delete(activity)
+        db.session.commit()
+        flash("Actividad y calificaciones asociadas eliminadas.", "success")
+    except Exception:
+        db.session.rollback()
+        flash("Error al eliminar la actividad.", "error")
+        
+    return redirect(url_for('teacher.manage_activities'))
+
 @teacher_bp.route('/gradebook', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_GRADES')
 def gradebook():
@@ -182,16 +237,22 @@ def gradebook():
                 score_key = f'score_{student.id}_{activity.id}'
                 score_val = request.form.get(score_key)
                 
-                if score_val:
-                    grade_obj = Grade.query.filter_by(student_id=student.id, activity_id=activity.id).first()
+                grade_obj = Grade.query.filter_by(student_id=student.id, activity_id=activity.id).first()
+                
+                if score_val and score_val.strip() != "":
+                    # Si hay un valor (incluyendo "0")
                     if grade_obj:
                         grade_obj.score = float(score_val)
                     else:
                         new_grade = Grade(student_id=student.id, activity_id=activity.id, score=float(score_val))
                         db.session.add(new_grade)
+                else:
+                    # Si el campo se dejó vacío, eliminamos la calificación si existía
+                    if grade_obj:
+                        db.session.delete(grade_obj)
         
         db.session.commit()
-        flash("Calificaciones guardadas con éxito.", "success")
+        flash("Calificaciones actualizadas con éxito.", "success")
         return redirect(url_for('teacher.gradebook', period_id=selected_period_id))
 
     existing_grades = {(g.student_id, g.activity_id): g.score for g in Grade.query.all()}

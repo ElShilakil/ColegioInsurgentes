@@ -152,9 +152,17 @@ def manage_teachers():
 @login_required(permission='MANAGE_TEACHERS')
 def toggle_teacher(id):
     teacher = User.query.get_or_404(id)
-    teacher.is_active = not teacher.is_active
+    if teacher.is_active:
+        # Al dar de baja, eliminar asignación si existe
+        if teacher.assignment:
+            db.session.delete(teacher.assignment)
+        teacher.is_active = False
+        status = "desactivado y se ha liberado su grupo"
+    else:
+        teacher.is_active = True
+        status = "activado"
+    
     db.session.commit()
-    status = "activado" if teacher.is_active else "desactivado"
     flash(f"Profesor {status} con éxito.", "success")
     return redirect(url_for('admin.manage_teachers'))
 
@@ -390,15 +398,27 @@ def view_report_card(student_id):
         if trimester_id not in grouped_scores[subj.id]:
             grouped_scores[subj.id][trimester_id] = []
             
-        grouped_scores[subj.id][trimester_id].append(g.score)
+        # Almacenamos tanto el puntaje como el peso de la actividad
+        grouped_scores[subj.id][trimester_id].append({
+            'score': g.score,
+            'weight': activity.percentage_value
+        })
         
     for subj_id, periods_scores in grouped_scores.items():
-        for t_id, scores in periods_scores.items():
-            if scores:
-                subject_data[subj_id]['averages'][t_id] = sum(scores) / len(scores)
-            else:
-                # Si no hay calificaciones para este trimestre, no incluimos la entrada
-                pass
+        for t_id, scores_data in periods_scores.items():
+            if scores_data:
+                # Cálculo de promedio ponderado: (Suma de Calificación * Peso) / Suma de Pesos
+                # Nota: Si el usuario asegura que los porcentajes suman 100%, la división por sum_weights daría el promedio ponderado correcto.
+                # Si sum_weights es por ejemplo 10 (porcentaje de 0 a 100 sumando 100), y score es 0-10, ajustamos según lógica.
+                
+                total_weighted_score = sum(s['score'] * (s['weight'] / 100.0) for s in scores_data)
+                total_weight_percentage = sum(s['weight'] for s in scores_data)
+                
+                if total_weight_percentage > 0:
+                    # Si queremos el promedio ponderado relativo a lo evaluado hasta el momento:
+                    subject_data[subj_id]['averages'][t_id] = (total_weighted_score / (total_weight_percentage / 100.0))
+                else:
+                    subject_data[subj_id]['averages'][t_id] = 0
             
     field_data = {}
     formative_fields = [

@@ -4,7 +4,10 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-    <div class="mb-4 flex justify-end no-print">
+    <div class="mb-4 flex justify-between no-print">
+        <a href="{{ url_for('admin.list_reports') }}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Regresar a la Consulta de Boletas Digitales
+        </a>
         <button onclick="window.print()" class="bg-gray-800 hover:bg-black text-white font-bold py-2 px-6 rounded-lg shadow transition-colors flex items-center">
             <i class="fas fa-print mr-2"></i> Imprimir Boleta
         </button>
@@ -41,7 +44,7 @@
             </div>
             <div>
                 <label class="block text-xs font-black text-gray-400 uppercase tracking-widest">Tutor</label>
-                <p class="text-md font-bold text-gray-700">{{ student.tutor_data or 'N/A' }}</p>
+                <p class="text-md font-bold text-gray-700">{{ student.nombre_tutor or 'N/A' }}</p>
             </div>
         </div>
 

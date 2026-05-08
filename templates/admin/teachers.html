@@ -48,7 +48,7 @@
                         Guardar Registro
                     </button>
                     <a href="{{ url_for('admin.admin_dashboard') }}" class="w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded transition-colors uppercase tracking-widest text-sm">
-                        Regresar
+                        Volver al Dashboard
                     </a>
                 </div>
             </form>
@@ -94,6 +94,13 @@
                                     <i class="fas fa-edit mr-1"></i> Editar
                                 </a>
                                 <a href="{{ url_for('admin.toggle_teacher', id=teacher.id) }}" 
+                                   data-name="{{ teacher.full_name }}"
+                                   data-active="{{ 'true' if teacher.is_active else 'false' }}"
+                                   {% if teacher.assignment %}
+                                   data-grade="{{ teacher.assignment.grade }}"
+                                   data-group="{{ teacher.assignment.group }}"
+                                   {% endif %}
+                                   onclick="return handleToggle(this)"
                                    class="text-xs font-black uppercase tracking-widest flex items-center {% if teacher.is_active %}text-red-600 hover:text-red-800{% else %}text-emeraldGreen hover:text-green-800{% endif %}">
                                     {% if teacher.is_active %}
                                         <i class="fas fa-user-slash mr-1"></i> Baja
@@ -110,4 +117,23 @@
         </div>
     </div>
 </div>
+
+<script>
+function handleToggle(link) {
+    const isActive = link.getAttribute('data-active') === 'true';
+    if (!isActive) return true;
+
+    const name = link.getAttribute('data-name');
+    const grade = link.getAttribute('data-grade');
+    const group = link.getAttribute('data-group');
+    
+    let message = `¿Estás seguro que deseas dar de baja al maestro ${name}?`;
+    
+    if (grade && group) {
+        message = `¿Estás seguro que deseas dar de baja al maestro ${name}? Este maestro tiene el ${grade}°${group} a su cargo. Si confirmas, se desasignará y el grupo pasará a estar disponible.`;
+    }
+
+    return confirm(message);
+}
+</script>
 {% endblock %}
