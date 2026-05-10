@@ -97,5 +97,64 @@
         }
     }
     </script>
+    <!-- Global Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 z-[100] hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-charcoal bg-opacity-75" onclick="closeConfirmModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border-t-8 border-amber-500" id="modalBorder">
+                <div class="bg-white px-6 pt-6 pb-4 sm:p-8 sm:pb-6">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-exclamation-triangle text-amber-600" id="modalIcon"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-xl font-black text-charcoal uppercase tracking-tight" id="modalTitle">Confirmar Acción</h3>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600 leading-relaxed" id="modalDescription"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 sm:px-8 sm:flex sm:flex-row-reverse gap-3">
+                    <a id="confirmBtn" href="#" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-6 py-2.5 bg-amber-600 text-sm font-black text-white hover:bg-amber-700 focus:outline-none transition-all uppercase tracking-widest sm:w-auto">
+                        Confirmar
+                    </a>
+                    <button type="button" onclick="closeConfirmModal()" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-6 py-2.5 bg-white text-sm font-black text-gray-700 hover:bg-gray-50 focus:outline-none transition-all uppercase tracking-widest sm:mt-0 sm:w-auto">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmAction(url, title, description, btnText = 'Confirmar', type = 'warning') {
+            const modal = document.getElementById('confirmModal');
+            const confirmBtn = document.getElementById('confirmBtn');
+            const border = document.getElementById('modalBorder');
+            const icon = document.getElementById('modalIcon');
+            
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDescription').innerText = description;
+            confirmBtn.href = url;
+            confirmBtn.innerText = btnText;
+            
+            // Estilos según el tipo
+            if (type === 'danger') {
+                border.className = border.className.replace(/border-\w+-\d+/, 'border-red-600');
+                confirmBtn.className = confirmBtn.className.replace(/bg-\w+-\d+/, 'bg-red-600').replace(/hover:bg-\w+-\d+/, 'hover:bg-red-700');
+            } else {
+                border.className = border.className.replace(/border-\w+-\d+/, 'border-amber-500');
+                confirmBtn.className = confirmBtn.className.replace(/bg-\w+-\d+/, 'bg-amber-600').replace(/hover:bg-\w+-\d+/, 'hover:bg-amber-700');
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>

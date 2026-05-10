@@ -9,11 +9,22 @@ class User(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name_paternal = db.Column(db.String(50), nullable=False)
     last_name_maternal = db.Column(db.String(50))
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    # Usamos db.Column('email', ...) para que en la base de datos la columna se siga llamando email
+    # pero en el código usemos 'username'. Esto evita migraciones complejas inmediatas.
+    username = db.Column('email', db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
+
+    @property
+    def email(self):
+        """Propiedad de compatibilidad por si algún código externo aún llama a .email"""
+        return self.username
+
+    @email.setter
+    def email(self, value):
+        self.username = value
 
     @property
     def full_name(self):
@@ -47,7 +58,7 @@ class Student(db.Model):
 class TeacherAssignment(db.Model):
     __tablename__ = 'teacher_assignments'
     id = db.Column(db.Integer, primary_key=True)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=True)
     grade = db.Column(db.Integer, nullable=False)
     group = db.Column(db.String(1), nullable=False)
     
@@ -92,9 +103,11 @@ class Trimester(db.Model):
 class Activity(db.Model):
     __tablename__ = 'activities'
     id = db.Column(db.Integer, primary_key=True)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     trimester_id = db.Column(db.Integer, db.ForeignKey('trimesters.id'), nullable=False)
+    grade = db.Column(db.Integer, nullable=False)
+    group = db.Column(db.String(1), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     type = db.Column(db.String(20), nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today)

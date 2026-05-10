@@ -3,67 +3,110 @@
 {% block title %}Dashboard Admin - Control Escolar{% endblock %}
 
 {% block content %}
+<!-- Bloque superior: Periodo Escolar Activo -->
 {% if active_period %}
-<div class="mb-6 bg-sky-50 border-l-4 border-deepBlue p-4 rounded shadow-sm flex items-center justify-between ring-1 ring-skyBlue ring-opacity-20">
-    <div>
-        <span class="text-xs font-black uppercase text-deepBlue tracking-widest block mb-1">Periodo Escolar Activo</span>
-        <span class="text-xl font-bold text-charcoal">{{ active_period.name }}</span>
-        <span class="text-sm text-gray-500 ml-2">({{ active_period.start_date }} al {{ active_period.end_date }})</span>
+<div class="mb-8 bg-white border-l-4 border-skyBlue p-5 rounded-lg shadow-sm flex flex-col md:flex-row items-center justify-between ring-1 ring-black ring-opacity-5">
+    <div class="mb-4 md:mb-0">
+        <span class="text-xs font-bold uppercase text-deepBlue tracking-wider block mb-1">Periodo Escolar Activo</span>
+        <div class="flex items-center">
+            <span class="text-2xl font-black text-charcoal">{{ active_period.name }}</span>
+            <span class="ml-3 px-3 py-1 bg-sky-100 text-deepBlue text-xs font-bold rounded-full border border-skyBlue border-opacity-20">
+                {{ active_period.start_date.strftime('%d/%m/%Y') if active_period.start_date else 'Sin fecha' }} - {{ active_period.end_date.strftime('%d/%m/%Y') if active_period.end_date else 'Sin fecha' }}
+            </span>
+        </div>
     </div>
-    <a href="{{ url_for('admin.manage_periods') }}" class="bg-white hover:bg-gray-50 text-deepBlue font-bold py-2 px-4 rounded border border-skyBlue border-opacity-30 text-sm transition-colors">
-        Cambiar Periodo
+    <a href="{{ url_for('admin.manage_periods') }}" class="w-full md:w-auto text-center bg-white hover:bg-offWhite text-deepBlue font-bold py-2.5 px-6 rounded-lg border border-skyBlue border-opacity-40 shadow-sm transition-all text-sm flex items-center justify-center">
+        <i class="fas fa-sync-alt mr-2 text-xs"></i> Cambiar Periodo
     </a>
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- Stats Cards -->
-    <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-deepBlue ring-1 ring-skyBlue ring-opacity-30">
-        <h3 class="text-gray-500 text-sm font-semibold uppercase">Profesores</h3>
-        <p class="text-3xl font-bold text-deepBlue">{{ teacher_count }}</p>
-        <a href="{{ url_for('admin.manage_teachers') }}" class="mt-4 inline-block text-deepBlue hover:underline text-sm font-medium">Gestionar Profesores &rarr;</a>
-    </div>
+<!-- Grid Principal de 6 Tarjetas Interactivas -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    
+    <!-- Estudiantes -->
+    <a href="{{ url_for('admin.manage_students') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-emerald-50 rounded-xl group-hover:bg-emeraldGreen group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-user-graduate text-2xl text-emeraldGreen group-hover:text-white"></i>
+            </div>
+            <span class="text-4xl font-black text-charcoal group-hover:text-emeraldGreen transition-colors">{{ student_count }}</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Estudiantes</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Gestionar alumnos y grupos</p>
+        </div>
+    </a>
 
-    <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-emeraldGreen ring-1 ring-skyBlue ring-opacity-30">
-        <h3 class="text-gray-500 text-sm font-semibold uppercase">Estudiantes</h3>
-        <p class="text-3xl font-bold text-emeraldGreen">{{ student_count }}</p>
-        <a href="{{ url_for('admin.manage_students') }}" class="mt-4 inline-block text-emeraldGreen hover:underline text-sm font-medium">Gestionar Estudiantes &rarr;</a>
-    </div>
+    <!-- Profesores -->
+    <a href="{{ url_for('admin.manage_teachers') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-sky-50 rounded-xl group-hover:bg-deepBlue group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-chalkboard-teacher text-2xl text-deepBlue group-hover:text-white"></i>
+            </div>
+            <span class="text-4xl font-black text-charcoal group-hover:text-deepBlue transition-colors">{{ teacher_count }}</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Profesores</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Administrar plantilla docente</p>
+        </div>
+    </a>
 
-    <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-goldenYellow ring-1 ring-skyBlue ring-opacity-30">
-        <h3 class="text-gray-500 text-sm font-semibold uppercase">Reportes</h3>
-        <p class="text-3xl font-bold text-charcoal">Boletas</p>
-        <a href="{{ url_for('admin.list_reports') }}" class="mt-4 inline-block text-deepBlue hover:underline text-sm font-medium">Ver Boletas &rarr;</a>
-    </div>
-</div>
+    <!-- Materias (NEM) -->
+    <a href="{{ url_for('admin.manage_subjects') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-book text-2xl text-purple-600 group-hover:text-white"></i>
+            </div>
+            <span class="text-4xl font-black text-charcoal group-hover:text-purple-600 transition-colors">{{ subject_count }}</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Materias (NEM)</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Campos formativos y materias</p>
+        </div>
+    </a>
 
-<div class="mt-10 bg-white p-8 rounded-lg shadow-lg ring-1 ring-skyBlue ring-opacity-30">
-    <h2 class="text-2xl font-bold mb-6 text-charcoal">Opciones de Administración</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <a href="{{ url_for('admin.manage_teachers') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-chalkboard-teacher text-3xl mb-2 text-deepBlue block"></i>
-            <span class="font-bold text-charcoal">Profesores</span>
-        </a>
-        <a href="{{ url_for('admin.manage_students') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-user-graduate text-3xl mb-2 text-emeraldGreen block"></i>
-            <span class="font-bold text-charcoal">Estudiantes</span>
-        </a>
-        <a href="{{ url_for('admin.manage_assignments') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-clipboard-list text-3xl mb-2 text-goldenYellow block"></i>
-            <span class="font-bold text-charcoal">Asignaciones</span>
-        </a>
-        <a href="{{ url_for('admin.manage_subjects') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-book text-3xl mb-2 text-emeraldGreen block"></i>
-            <span class="font-bold text-charcoal">Materias</span>
-        </a>
-        <a href="{{ url_for('admin.list_reports') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-file-alt text-3xl mb-2 text-deepBlue block"></i>
-            <span class="font-bold text-charcoal">Boletas</span>
-        </a>
-        <a href="{{ url_for('admin.manage_periods') }}" class="p-4 border border-skyBlue border-opacity-30 rounded-lg hover:bg-offWhite transition-colors text-center">
-            <i class="fas fa-calendar-alt text-3xl mb-2 text-goldenYellow block"></i>
-            <span class="font-bold text-charcoal">Trimestres</span>
-        </a>
-    </div>
+    <!-- Asignaciones -->
+    <a href="{{ url_for('admin.manage_assignments') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-amber-50 rounded-xl group-hover:bg-goldenYellow group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-clipboard-list text-2xl text-goldenYellow group-hover:text-white"></i>
+            </div>
+            <span class="text-4xl font-black text-charcoal group-hover:text-goldenYellow transition-colors">{{ assignment_count }}</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Asignaciones</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Asignar profesores a grupos</p>
+        </div>
+    </a>
+
+    <!-- Periodos y Ciclos -->
+    <a href="{{ url_for('admin.manage_periods') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-rose-50 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-calendar-alt text-2xl text-rose-500 group-hover:text-white"></i>
+            </div>
+            <span class="text-4xl font-black text-charcoal group-hover:text-rose-500 transition-colors">{{ cycle_count }}</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Periodos y Ciclos</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Configurar ciclos y trimestres</p>
+        </div>
+    </a>
+
+    <!-- Boletas Digitales -->
+    <a href="{{ url_for('admin.list_reports') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ring-1 ring-black ring-opacity-5">
+        <div class="flex items-start justify-between">
+            <div class="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-file-alt text-2xl text-blue-600 group-hover:text-white"></i>
+            </div>
+            <span class="text-sm font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg group-hover:bg-white group-hover:text-blue-600 transition-colors mt-1 tracking-tighter uppercase">Generar PDF</span>
+        </div>
+        <div class="mt-6">
+            <h3 class="text-lg font-bold text-charcoal tracking-tight">Boletas Digitales</h3>
+            <p class="text-gray-500 text-sm mt-1 font-medium">Consulta y descarga de reportes</p>
+        </div>
+    </a>
+
 </div>
 {% endblock %}

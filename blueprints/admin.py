@@ -1,10 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from extensions import db
 from models import User, Student, TeacherAssignment, Subject, Grade, Trimester, SchoolCycle
 from decorators import login_required
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_, cast, String
 import re
 from datetime import datetime, date
 
@@ -13,12 +12,18 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @admin_bp.route('/dashboard')
 @login_required(permission='MANAGE_STUDENTS')
 def admin_dashboard():
-    teacher_count = User.query.filter_by(role='teacher').count()
+    teacher_count = User.query.filter_by(role='teacher', is_active=True).count()
     student_count = Student.query.filter_by(is_active=True).count()
+    subject_count = Subject.query.count()
+    assignment_count = TeacherAssignment.query.count()
+    cycle_count = SchoolCycle.query.count()
     active_period = Trimester.query.filter_by(is_active=True).first()
     return render_template('admin/dashboard.html', 
                            teacher_count=teacher_count, 
-                           student_count=student_count, 
+                           student_count=student_count,
+                           subject_count=subject_count,
+                           assignment_count=assignment_count,
+                           cycle_count=cycle_count,
                            active_period=active_period)
 
 @admin_bp.route('/periods', methods=['GET', 'POST'])
@@ -114,7 +119,7 @@ def manage_teachers():
         first_name = request.form.get('first_name')
         last_name_paternal = request.form.get('last_name_paternal')
         last_name_maternal = request.form.get('last_name_maternal')
-        email = request.form.get('email')
+        username = request.form.get('username')
         password = request.form.get('password')
         
         name_regex = r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$'
@@ -122,19 +127,19 @@ def manage_teachers():
 
         if not re.match(name_regex, first_name) or not re.match(name_regex, last_name_paternal) or (last_name_maternal and not re.match(name_regex, last_name_maternal)):
             flash("Los nombres y apellidos deben contener solo letras.", "error")
-        elif not re.match(r'^[^@]{5,}@cinsurgentes\.edu\.mx$', email):
-            flash("El correo debe tener al menos 5 caracteres antes del dominio @cinsurgentes.edu.mx", "error")
+        elif not username or len(username) < 3:
+            flash("El usuario debe tener al menos 3 caracteres.", "error")
         elif not re.match(password_regex, password):
             flash("La contraseña debe tener al menos 8 caracteres, incluir una mayúscula y un número.", "error")
-        elif User.query.filter_by(email=email).first():
-            flash("El correo ya está registrado.", "error")
+        elif User.query.filter_by(username=username).first():
+            flash("El nombre de usuario ya está registrado.", "error")
         else:
             try:
                 new_teacher = User(
                     first_name=first_name, 
                     last_name_paternal=last_name_paternal, 
                     last_name_maternal=last_name_maternal,
-                    email=email, 
+                    username=username, 
                     role='teacher'
                 )
                 new_teacher.set_password(password)
@@ -145,15 +150,29 @@ def manage_teachers():
                 db.session.rollback()
                 flash("Error al registrar el profesor.", "error")
     
-    teachers = User.query.filter_by(role='teacher').all()
-    return render_template('admin/teachers.html', teachers=teachers)
+    # Filtros para Maestros
+    q = request.args.get('q', '').strip()
+    query = User.query.filter_by(role='teacher')
+
+    if q:
+        search = f"%{q}%"
+        query = query.filter(or_(
+            User.first_name.ilike(search),
+            User.last_name_paternal.ilike(search),
+            User.last_name_maternal.ilike(search),
+            User.username.ilike(search)
+        ))
+
+    teachers = query.order_by(User.last_name_paternal).all()
+    return render_template('admin/teachers.html', 
+                           teachers=teachers, 
+                           q=q)
 
 @admin_bp.route('/teachers/toggle/<int:id>')
 @login_required(permission='MANAGE_TEACHERS')
 def toggle_teacher(id):
     teacher = User.query.get_or_404(id)
     if teacher.is_active:
-        # Al dar de baja, eliminar asignación si existe
         if teacher.assignment:
             db.session.delete(teacher.assignment)
         teacher.is_active = False
@@ -171,20 +190,20 @@ def toggle_teacher(id):
 def edit_teacher(id):
     teacher = User.query.get_or_404(id)
     if request.method == 'POST':
-        email = request.form.get('email')
-        if not re.match(r'^.{5,}@cinsurgentes\.edu\.mx$', email):
-            flash("El correo debe tener más de 4 caracteres y el dominio @cinsurgentes.edu.mx", "error")
+        username = request.form.get('username')
+        if not username or len(username) < 3:
+            flash("El usuario debe tener al menos 3 caracteres.", "error")
             return redirect(url_for('admin.edit_teacher', id=id))
         
-        if email != teacher.email and User.query.filter_by(email=email).first():
-            flash("Ese correo ya está en uso por otro usuario.", "error")
+        if username != teacher.username and User.query.filter_by(username=username).first():
+            flash("Ese usuario ya está en uso.", "error")
             return redirect(url_for('admin.edit_teacher', id=id))
 
         try:
             teacher.first_name = request.form.get('first_name')
             teacher.last_name_paternal = request.form.get('last_name_paternal')
             teacher.last_name_maternal = request.form.get('last_name_maternal')
-            teacher.email = email
+            teacher.username = username
             
             new_password = request.form.get('password')
             if new_password:
@@ -242,8 +261,45 @@ def manage_students():
                 db.session.rollback()
                 flash("Error al registrar el estudiante.", "error")
             
-    students = Student.query.filter_by(is_active=True).order_by(Student.grade, Student.group).all()
-    return render_template('admin/students.html', students=students)
+    # Filtros para Alumnos
+    q = request.args.get('q', '').strip()
+    group_filter = request.args.get('group', '').strip()
+    # Traemos a todos los estudiantes (activos e inactivos)
+    query = Student.query
+
+    if q:
+        search = f"%{q}%"
+        query = query.filter(or_(
+            Student.first_name.ilike(search),
+            Student.last_name_paternal.ilike(search),
+            Student.last_name_maternal.ilike(search),
+            Student.curp.ilike(search)
+        ))
+
+    if group_filter:
+        if '-' in group_filter:
+            try:
+                g_grade, g_group = group_filter.split('-')
+                query = query.filter(Student.grade == g_grade, Student.group == g_group.upper())
+            except ValueError: pass
+        else:
+            query = query.filter(or_(
+                cast(Student.grade, String).ilike(f"%{group_filter}%"),
+                Student.group.ilike(f"%{group_filter}%")
+            ))
+
+    # Obtener grupos disponibles para el selector (incluyendo inactivos para que no se pierdan filtros)
+    available_groups = db.session.query(Student.grade, Student.group).\
+        distinct().\
+        order_by(Student.grade, Student.group).all()
+
+    # Ordenamos: Activos primero (is_active desc), luego por grado, grupo y nombre
+    students = query.order_by(Student.is_active.desc(), Student.grade, Student.group, Student.last_name_paternal).all()
+    return render_template('admin/students.html', 
+                           students=students, 
+                           q=q, 
+                           group_filter=group_filter,
+                           available_groups=available_groups)
 
 @admin_bp.route('/students/edit/<int:id>', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_STUDENTS')
@@ -281,7 +337,7 @@ def toggle_student(id):
     student = Student.query.get_or_404(id)
     student.is_active = not student.is_active
     db.session.commit()
-    status = "activado" if student.is_active else "desactivado (borrado lógico)"
+    status = "activado" if student.is_active else "deshabilitado"
     flash(f"Estudiante {status} con éxito.", "success")
     return redirect(url_for('admin.manage_students'))
 
@@ -293,22 +349,34 @@ def manage_assignments():
         grade = request.form.get('grade')
         group = request.form.get('group')
         
-        existing_group = TeacherAssignment.query.filter_by(grade=grade, group=group).first()
-        if existing_group and str(existing_group.teacher_id) != str(teacher_id):
-            flash(f"El grupo {grade}°{group} ya tiene un profesor asignado ({existing_group.teacher.full_name}).", "error")
-            return redirect(url_for('admin.manage_assignments'))
-
-        existing_teacher = TeacherAssignment.query.filter_by(teacher_id=teacher_id).first()
+        # Buscar si ya existe una asignación para este GRUPO (Grado y Grupo)
+        existing_assignment = TeacherAssignment.query.filter_by(grade=grade, group=group).first()
+        
+        # Buscar si el profesor ya tiene otra asignación (porque teacher_id es unique)
+        other_teacher_assignment = TeacherAssignment.query.filter_by(teacher_id=teacher_id).first()
         
         try:
-            if existing_teacher:
-                existing_teacher.grade = grade
-                existing_teacher.group = group
-                flash("Asignación actualizada.", "success")
+            if existing_assignment:
+                # Si el profesor ya tenía otro grupo asignado, borramos esa asignación vieja
+                # para liberar al profesor y permitir que tome este grupo.
+                if other_teacher_assignment and other_teacher_assignment.id != existing_assignment.id:
+                    db.session.delete(other_teacher_assignment)
+                    db.session.flush()
+                
+                # Actualizamos el profesor en la asignación existente del grupo.
+                # Esto preserva el ID de la asignación y sus actividades vinculadas.
+                existing_assignment.teacher_id = teacher_id
+                flash(f"Grupo {grade}°{group} actualizado con el nuevo profesor. Actividades preservadas.", "success")
             else:
+                # Si el grupo no existía, pero el profesor sí tenía otro grupo
+                if other_teacher_assignment:
+                    db.session.delete(other_teacher_assignment)
+                    db.session.flush()
+                
+                # Creamos una nueva asignación para este grupo
                 new_assignment = TeacherAssignment(teacher_id=teacher_id, grade=grade, group=group)
                 db.session.add(new_assignment)
-                flash("Asignación creada con éxito.", "success")
+                flash("Nueva asignación creada con éxito.", "success")
             
             db.session.commit()
         except IntegrityError:
@@ -318,55 +386,115 @@ def manage_assignments():
             db.session.rollback()
             flash("Ocurrió un error inesperado al guardar la asignación.", "error")
         
-    teachers = User.query.filter_by(role='teacher', is_active=True).all()
-    assignments = TeacherAssignment.query.all()
-    return render_template('admin/assignments.html', teachers=teachers, assignments=assignments)
+    # Filtros para Asignaciones
+    q = request.args.get('q', '').strip()
+    group_filter = request.args.get('group', '').strip()
+    query = TeacherAssignment.query.join(User)
 
-@admin_bp.route('/subjects', methods=['GET', 'POST'])
+    if q:
+        search = f"%{q}%"
+        query = query.filter(or_(
+            User.first_name.ilike(search),
+            User.last_name_paternal.ilike(search),
+            User.last_name_maternal.ilike(search),
+            User.username.ilike(search)
+        ))
+
+    if group_filter:
+        if '-' in group_filter:
+            try:
+                g_grade, g_group = group_filter.split('-')
+                query = query.filter(TeacherAssignment.grade == g_grade, TeacherAssignment.group == g_group.upper())
+            except ValueError: pass
+        else:
+            query = query.filter(or_(
+                cast(TeacherAssignment.grade, String).ilike(f"%{group_filter}%"),
+                TeacherAssignment.group.ilike(f"%{group_filter}%")
+            ))
+
+    teachers = User.query.filter_by(role='teacher', is_active=True).all()
+    assignments = query.order_by(TeacherAssignment.grade, TeacherAssignment.group).all()
+
+    # Grupos disponibles (dinámico desde Alumnos activos)
+    available_groups = db.session.query(Student.grade, Student.group).\
+        filter_by(is_active=True).distinct().\
+        order_by(Student.grade, Student.group).all()
+
+    return render_template('admin/assignments.html', 
+                           teachers=teachers, 
+                           assignments=assignments,
+                           q=q,
+                           group_filter=group_filter,
+                           available_groups=available_groups)
+
+@admin_bp.route('/assignments/delete/<int:id>')
+@login_required(permission='MANAGE_ASSIGNMENTS')
+def delete_assignment(id):
+    assignment = TeacherAssignment.query.get_or_404(id)
+    if assignment.teacher:
+        teacher_name = assignment.teacher.full_name
+        assignment.teacher_id = None
+        db.session.commit()
+        flash(f"Se ha desvinculado al profesor {teacher_name} del grupo con éxito. El historial del grupo se ha conservado.", "success")
+    else:
+        # Si ya no tenía maestro, pero el registro existe (grupo vacío con historia), 
+        # aquí podríamos decidir si borrarlo físicamente si no tiene actividades.
+        if not assignment.activities:
+            db.session.delete(assignment)
+            db.session.commit()
+            flash("Grupo vacío eliminado correctamente.", "success")
+        else:
+            flash("Este grupo está vacante pero conserva historial académico.", "info")
+            
+    return redirect(url_for('admin.manage_assignments'))
+
+@admin_bp.route('/subjects')
 @login_required(permission='MANAGE_SUBJECTS')
 def manage_subjects():
-    formative_fields = [
-        "Lenguajes",
-        "Saberes y pensamiento científico",
-        "Ética, naturaleza y sociedades",
-        "De lo humano y lo comunitario"
-    ]
-    if request.method == 'POST':
-        name = request.form.get('name')
-        formative_field = request.form.get('formative_field')
-        
-        new_subject = Subject(name=name, formative_field=formative_field)
-        db.session.add(new_subject)
-        db.session.commit()
-        flash("Materia registrada con éxito.", "success")
-            
-    subjects = Subject.query.all()
-    return render_template('admin/subjects.html', subjects=subjects, fields=formative_fields)
-
-@admin_bp.route('/subjects/edit/<int:id>', methods=['GET', 'POST'])
-@login_required(permission='MANAGE_SUBJECTS')
-def edit_subject(id):
-    subject = Subject.query.get_or_404(id)
-    formative_fields = [
-        "Lenguajes",
-        "Saberes y pensamiento científico",
-        "Ética, naturaleza y sociedades",
-        "De lo humano y lo comunitario"
-    ]
-    if request.method == 'POST':
-        subject.name = request.form.get('name')
-        subject.formative_field = request.form.get('formative_field')
-        db.session.commit()
-        flash("Materia actualizada.", "success")
-        return redirect(url_for('admin.manage_subjects'))
-    return render_template('admin/edit_subject.html', subject=subject, fields=formative_fields)
+    subjects = Subject.query.order_by(Subject.formative_field, Subject.name).all()
+    return render_template('admin/subjects.html', subjects=subjects)
 
 @admin_bp.route('/reports')
 @login_required(permission='VIEW_REPORTS')
 def list_reports():
-    students = Student.query.filter_by(is_active=True).order_by(Student.grade, Student.group).all()
-    students = sorted(students, key=lambda x: x.last_name_paternal)
-    return render_template('admin/reports_list.html', students=students)
+    # Obtener parámetros de búsqueda
+    search_query = request.args.get('q', '').strip()
+    group_filter = request.args.get('group', '').strip()
+
+    # Consulta base: Estudiantes activos
+    query = Student.query.filter_by(is_active=True)
+
+    # Filtrar por nombre o apellidos si hay búsqueda
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        query = query.filter(or_(
+            Student.first_name.ilike(search_pattern),
+            Student.last_name_paternal.ilike(search_pattern),
+            Student.last_name_maternal.ilike(search_pattern),
+            Student.curp.ilike(search_pattern)
+        ))
+
+    # Filtrar por Grado-Grupo si está seleccionado
+    if group_filter:
+        try:
+            grade, group = group_filter.split('-')
+            query = query.filter(Student.grade == grade, Student.group == group)
+        except ValueError:
+            pass
+
+    # Obtener todos los alumnos filtrados, ordenados por grado, grupo y nombre
+    students = query.order_by(Student.grade, Student.group, Student.last_name_paternal).all()
+    
+    # Obtener grupos disponibles para el selector (dinámico)
+    available_groups = db.session.query(Student.grade, Student.group).\
+        filter_by(is_active=True).distinct().\
+        order_by(Student.grade, Student.group).all()
+    
+    return render_template('admin/reports_list.html', 
+                           students=students, 
+                           available_groups=available_groups,
+                           search_query=search_query,
+                           group_filter=group_filter)
 
 @admin_bp.route('/reports/view/<int:student_id>')
 @login_required(permission='VIEW_REPORTS')
@@ -408,14 +536,10 @@ def view_report_card(student_id):
         for t_id, scores_data in periods_scores.items():
             if scores_data:
                 # Cálculo de promedio ponderado: (Suma de Calificación * Peso) / Suma de Pesos
-                # Nota: Si el usuario asegura que los porcentajes suman 100%, la división por sum_weights daría el promedio ponderado correcto.
-                # Si sum_weights es por ejemplo 10 (porcentaje de 0 a 100 sumando 100), y score es 0-10, ajustamos según lógica.
-                
                 total_weighted_score = sum(s['score'] * (s['weight'] / 100.0) for s in scores_data)
                 total_weight_percentage = sum(s['weight'] for s in scores_data)
                 
                 if total_weight_percentage > 0:
-                    # Si queremos el promedio ponderado relativo a lo evaluado hasta el momento:
                     subject_data[subj_id]['averages'][t_id] = (total_weighted_score / (total_weight_percentage / 100.0))
                 else:
                     subject_data[subj_id]['averages'][t_id] = 0

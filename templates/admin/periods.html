@@ -3,92 +3,89 @@
 {% block title %}Gestión de Ciclos y Trimestres - Colegio Insurgentes{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="{{ url_for('admin.admin_dashboard') }}" class="text-deepBlue hover:underline text-sm font-bold flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Volver al Dashboard
+<div class="mb-8 flex flex-col gap-4">
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
     </a>
-    <h1 class="text-4xl font-black text-charcoal mt-4 tracking-tighter uppercase">Calendario Académico</h1>
+    <h1 class="text-4xl font-black text-charcoal mt-2 tracking-tighter uppercase">Calendario Académico</h1>
     <p class="text-gray-500 font-medium text-sm">Gestiona ciclos y define fechas independientes para cada trimestre.</p>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
     <!-- Listado de Ciclos y Trimestres -->
-    <div class="lg:col-span-2 space-y-8">
-        <form method="POST">
+    <div class="lg:col-span-2 flex flex-col max-h-[750px]">
+        <form method="POST" class="flex flex-col h-full overflow-hidden">
             <input type="hidden" name="action" value="set_active">
             
-            {% for cycle in cycles %}
-            <div class="bg-white rounded-3xl shadow-xl overflow-hidden ring-1 {{ 'ring-emeraldGreen ring-opacity-50 shadow-emerald-100' if cycle.is_active else 'ring-gray-100' }} mb-8">
-                <div class="p-6 flex justify-between items-center {{ 'bg-emerald-50' if cycle.is_active else 'bg-gray-50' }} border-b border-gray-100">
-                    <h2 class="text-2xl font-black {{ 'text-emeraldGreen' if cycle.is_active else 'text-charcoal' }} tracking-tighter">
-                        CICLO {{ cycle.name }}
-                    </h2>
-                    {% if cycle.is_active %}
-                    <span class="flex items-center gap-2 px-4 py-2 bg-emeraldGreen text-white text-[10px] font-black uppercase rounded-full tracking-widest">
-                        Ciclo en curso
-                    </span>
-                    {% endif %}
-                </div>
+            <div class="flex-grow overflow-y-auto pr-2 space-y-8" style="max-height: 750px;">
+                {% for cycle in cycles %}
+                <div class="bg-white rounded-3xl shadow-xl overflow-hidden ring-1 {{ 'ring-emeraldGreen ring-opacity-50 shadow-emerald-100' if cycle.is_active else 'ring-gray-100' }}">
+                    <div class="p-6 flex justify-between items-center {{ 'bg-emerald-50' if cycle.is_active else 'bg-gray-50' }} border-b border-gray-100">
+                        <h2 class="text-2xl font-black {{ 'text-emeraldGreen' if cycle.is_active else 'text-charcoal' }} tracking-tighter">
+                            CICLO {{ cycle.name }}
+                        </h2>
+                        {% if cycle.is_active %}
+                        <span class="flex items-center gap-2 px-4 py-2 bg-emeraldGreen text-white text-[10px] font-black uppercase rounded-full tracking-widest">
+                            Ciclo en curso
+                        </span>
+                        {% endif %}
+                    </div>
 
-                <div class="p-4">
-                    <table class="w-full">
-                        <tbody class="divide-y divide-gray-100">
-                            {% for t in cycle.trimesters %}
-                            <tr class="{{ 'bg-emerald-50/20' if t.is_active else '' }}">
-                                <td class="p-5 text-center w-20">
-                                    <label class="relative flex items-center justify-center cursor-pointer">
-                                        <input type="radio" name="active_trimester" value="{{ t.id }}" 
-                                               {{ 'checked' if t.is_active else '' }}
-                                               class="peer sr-only">
-                                        <div class="w-7 h-7 bg-white border-2 border-gray-200 rounded-full peer-checked:border-emeraldGreen peer-checked:bg-emeraldGreen transition-all"></div>
-                                        <svg class="absolute w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </label>
-                                </td>
-                                <td class="p-5">
-                                    <span class="text-lg font-black text-charcoal block tracking-tight">{{ t.name }}</span>
-                                    <span class="text-xs font-bold text-gray-400 uppercase tracking-tighter">
-                                        {% if t.start_date and t.end_date %}
-                                            {{ t.start_date.strftime('%d/%m/%Y') }} — {{ t.end_date.strftime('%d/%m/%Y') }}
-                                        {% else %}
-                                            <span class="text-red-400">Sin fechas definidas</span>
-                                        {% endif %}
-                                    </span>
-                                </td>
-                                <td class="p-5 text-right">
-                                    <button type="button" 
-                                            onclick="editTrimesterDates({{ t.id }}, '{{ t.name }}', '{{ cycle.name }}', '{{ t.start_date if t.start_date else '' }}', '{{ t.end_date if t.end_date else '' }}')"
-                                            class="text-deepBlue hover:underline text-xs font-black uppercase tracking-widest">
-                                        Editar Fechas
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <tbody class="divide-y divide-gray-100">
+                                {% for t in cycle.trimesters %}
+                                <tr class="{{ 'bg-emerald-50/20' if t.is_active else '' }} hover:bg-gray-50/50 transition-colors">
+                                    <td class="p-5 text-center w-20">
+                                        <label class="relative flex items-center justify-center cursor-pointer">
+                                            <input type="radio" name="active_trimester" value="{{ t.id }}" 
+                                                   {{ 'checked' if t.is_active else '' }}
+                                                   class="peer sr-only">
+                                            <div class="w-7 h-7 bg-white border-2 border-gray-200 rounded-full peer-checked:border-emeraldGreen peer-checked:bg-emeraldGreen transition-all"></div>
+                                            <svg class="absolute w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </label>
+                                    </td>
+                                    <td class="p-5">
+                                        <span class="text-lg font-black text-charcoal block tracking-tight">{{ t.name }}</span>
+                                        <span class="text-xs font-bold text-gray-400 uppercase tracking-tighter">
+                                            {% if t.start_date and t.end_date %}
+                                                {{ t.start_date.strftime('%d/%m/%Y') }} — {{ t.end_date.strftime('%d/%m/%Y') }}
+                                            {% else %}
+                                                <span class="text-red-400">Sin fechas definidas</span>
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="p-5 text-center flex justify-center">
+                                        <button type="button" 
+                                                onclick="editTrimesterDates({{ t.id }}, '{{ t.name }}', '{{ cycle.name }}', '{{ t.start_date if t.start_date else '' }}', '{{ t.end_date if t.end_date else '' }}')"
+                                                class="text-deepBlue hover:text-blue-900 text-xs font-black uppercase tracking-widest">
+                                            <i class="fas fa-calendar-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
 
-            <div class="sticky bottom-8 flex justify-center mt-10">
-                <button type="submit" class="bg-charcoal text-white px-10 py-5 rounded-2xl shadow-2xl hover:bg-black transition-all border-b-4 border-gray-800 active:border-b-0 active:translate-y-1">
-                    <span class="text-sm font-black uppercase tracking-widest">Activar Trimestre Seleccionado</span>
+            <div class="sticky bottom-0 bg-offWhite py-6 flex justify-center z-10 border-t border-gray-100">
+                <button type="submit" class="bg-charcoal text-white px-10 py-4 rounded-2xl shadow-2xl hover:bg-black transition-all border-b-4 border-gray-800 active:border-b-0 active:translate-y-1">
+                    <span class="text-sm font-black uppercase tracking-widest">Activar Trimestre</span>
                 </button>
             </div>
         </form>
     </div>
 
     <!-- Panel Lateral -->
-    <div class="lg:col-span-1 space-y-8">
+    <div class="lg:col-span-1 space-y-8 h-full">
         <!-- Nuevo Ciclo -->
-        <div class="bg-white p-8 rounded-3xl shadow-xl ring-1 ring-deepBlue ring-opacity-5 border-t-8 border-deepBlue">
+        <div class="bg-white p-8 rounded-3xl shadow-xl ring-1 ring-deepBlue ring-opacity-5 border-t-8 border-deepBlue h-auto">
             <h3 class="text-xl font-black text-charcoal mb-2 uppercase tracking-tighter">Nuevo Ciclo</h3>
-            <p class="text-sm text-gray-400 font-medium mb-8 italic">* Solo permitido si el ciclo anterior ha concluido.</p>
-            
             <form method="POST">
                 <input type="hidden" name="action" value="setup_cycle">
                 <div class="mb-6">
@@ -96,7 +93,7 @@
                     <input type="text" name="name" placeholder="Ej: 2025-2026" required
                            class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-deepBlue focus:bg-white outline-none font-bold text-lg text-charcoal">
                 </div>
-                <button type="submit" class="w-full bg-deepBlue text-white font-black py-5 rounded-2xl shadow-lg hover:bg-blue-900 transition-all uppercase tracking-widest text-xs">
+                <button type="submit" class="w-full bg-deepBlue text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-900 transition-all uppercase tracking-widest text-xs">
                     Crear Ciclo
                 </button>
             </form>

@@ -87,7 +87,7 @@ def seed():
                 groups.append((g, section))
         
         teachers = []
-        password_hash = generate_password_hash("admin123")
+        password_hash = generate_password_hash("admin") # Contraseña genérica para maestros
         
         for i, (grade, group) in enumerate(groups):
             gender = random.choice(['H', 'M'])
@@ -95,20 +95,20 @@ def seed():
             last_p = random.choice(APELLIDOS)
             last_m = random.choice(APELLIDOS)
             
-            # Formato: nombre.primerapellido@cinsurgentes.edu.mx
-            email = f"{first_name.lower()}.{last_p.lower()}@cinsurgentes.edu.mx"
+            # Formato: nombre.primerapellido (sin dominio)
+            username = f"{first_name.lower()}.{last_p.lower()}"
             
-            # Evitar duplicados de email en seed
+            # Evitar duplicados de username en seed
             counter = 1
-            while User.query.filter_by(email=email).first():
-                email = f"{first_name.lower()}.{last_p.lower()}{counter}@cinsurgentes.edu.mx"
+            while User.query.filter_by(username=username).first():
+                username = f"{first_name.lower()}.{last_p.lower()}{counter}"
                 counter += 1
 
             teacher = User(
                 first_name=first_name,
                 last_name_paternal=last_p,
                 last_name_maternal=last_m,
-                email=email,
+                username=username,
                 password_hash=password_hash,
                 role='teacher'
             )
@@ -177,6 +177,8 @@ def seed():
                         
                         activity = Activity(
                             teacher_id=teacher.id,
+                            grade=grade,
+                            group=group,
                             subject_id=subj.id,
                             trimester_id=trim.id,
                             name=f"{act_name} - {subj.name}",

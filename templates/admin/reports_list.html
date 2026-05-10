@@ -3,48 +3,106 @@
 {% block title %}Boletas de Calificaciones - Control Escolar{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="{{ url_for('admin.admin_dashboard') }}" class="text-institutionalBlue hover:underline">&larr; Volver al Dashboard</a>
-    <h1 class="text-3xl font-bold text-gray-800 mt-4">Consulta de Boletas Digitales</h1>
+<div class="mb-8 flex flex-col gap-4">
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
+    </a>
+    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Boletas de Calificaciones</h1>
 </div>
 
-<div class="bg-white p-8 rounded-lg shadow-lg border-t-4 border-institutionalBlue ring-1 ring-skyBlue ring-opacity-20">
-    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-        <div>
-            <h2 class="text-2xl font-bold text-charcoal uppercase tracking-tight">Selecciona un Estudiante</h2>
-            <p class="text-gray-500 text-sm italic">Filtra y elige un alumno para ver su reporte académico.</p>
+<!-- Toolbar de Filtrado -->
+<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 ring-1 ring-black ring-opacity-5">
+    <form method="GET" action="{{ url_for('admin.list_reports') }}" class="flex flex-col lg:flex-row gap-4 items-end">
+        <!-- Búsqueda por texto -->
+        <div class="w-full lg:flex-1">
+            <label for="q" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Buscar Estudiante</label>
+            <div class="relative">
+                <input type="text" name="q" id="q" value="{{ search_query }}" placeholder="Nombre, apellidos o CURP..." 
+                       class="w-full border-2 border-gray-50 rounded-xl py-2.5 pl-11 pr-4 focus:border-deepBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50">
+                <span class="absolute left-4 top-3 text-gray-400">
+                    <i class="fas fa-search"></i>
+                </span>
+            </div>
         </div>
-        <div class="relative w-full md:w-1/3">
-            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar estudiante..." class="w-full border-2 border-gray-100 rounded-lg py-2 pl-10 pr-4 focus:border-deepBlue outline-none transition-colors text-sm">
-            <span class="absolute left-3 top-2.5 text-gray-400">
-                <i class="fas fa-search"></i>
-            </span>
+
+        <!-- Filtro por Grupo -->
+        <div class="w-full lg:w-48">
+            <label for="group" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Grupo</label>
+            <select name="group" id="group" class="w-full border-2 border-gray-50 rounded-xl py-2.5 px-4 focus:border-deepBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50 appearance-none cursor-pointer">
+                <option value="">Todos los grupos</option>
+                {% for g in available_groups %}
+                {% set val = g.grade ~ "-" ~ g.group %}
+                <option value="{{ val }}" {% if group_filter == val %}selected{% endif %}>
+                    {{ g.grade }}°{{ g.group }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex gap-2 w-full lg:w-auto">
+            <button type="submit" class="flex-1 lg:flex-none bg-deepBlue hover:bg-blue-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all text-sm flex items-center justify-center">
+                <i class="fas fa-filter mr-2 text-xs"></i> Filtrar
+            </button>
+            <a href="{{ url_for('admin.list_reports') }}" class="flex-1 lg:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
+                <i class="fas fa-eraser mr-2 text-xs"></i> Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col ring-1 ring-black ring-opacity-5 max-h-[650px]">
+    <div class="p-6 border-b border-gray-50 flex justify-between items-center">
+        <div>
+            <h2 class="text-xl font-bold text-charcoal uppercase tracking-tight">Consulta de Boletas Digitales</h2>
+            <p class="text-gray-400 text-xs font-medium uppercase tracking-widest mt-1">Se encontraron {{ students|length }} resultados</p>
         </div>
     </div>
     
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse" id="dataTable">
-            <thead>
-                <tr class="bg-gray-100 border-b">
-                    <th class="p-4 font-black text-gray-700 uppercase text-xs tracking-widest">Nombre Completo</th>
-                    <th class="p-4 font-black text-gray-700 uppercase text-xs tracking-widest">CURP</th>
-                    <th class="p-4 font-black text-gray-700 text-center uppercase text-xs tracking-widest">G/G</th>
-                    <th class="p-4 font-black text-gray-700 text-center uppercase text-xs tracking-widest">Acción</th>
+    <div class="overflow-x-auto overflow-y-auto max-h-[600px] rounded-lg shadow-inner">
+        <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 z-10 bg-offWhite shadow-sm">
+                <tr class="bg-offWhite text-gray-500">
+                    <th class="p-4 font-bold uppercase text-[10px] tracking-widest bg-offWhite">Estudiante</th>
+                    <th class="p-4 font-bold uppercase text-[10px] tracking-widest bg-offWhite">CURP</th>
+                    <th class="p-4 font-bold text-center uppercase text-[10px] tracking-widest bg-offWhite">Grado/Grupo</th>
+                    <th class="p-4 font-bold text-center uppercase text-[10px] tracking-widest bg-offWhite">Acciones</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-50">
                 {% for student in students %}
-                <tr class="border-b hover:bg-gray-50 transition-colors">
-                    <td class="p-4 font-bold text-gray-800">{{ student.full_name }}</td>
-                    <td class="p-4 text-xs font-mono text-gray-500">{{ student.curp }}</td>
+                <tr class="hover:bg-gray-50/50 transition-colors group">
+                    <td class="p-4">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-deepBlue mr-3 font-bold text-xs uppercase">
+                                {{ student.first_name[0] }}{{ student.last_name_paternal[0] }}
+                            </div>
+                            <span class="font-bold text-charcoal text-sm group-hover:text-deepBlue transition-colors">{{ student.full_name }}</span>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <span class="text-xs font-mono text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100">{{ student.curp }}</span>
+                    </td>
                     <td class="p-4 text-center">
-                        <span class="bg-skyBlue bg-opacity-10 text-deepBlue text-xs font-black px-2 py-1 rounded">{{ student.grade }}°{{ student.group }}</span>
+                        <span class="bg-emerald-50 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-100">
+                            {{ student.grade }}°{{ student.group }}
+                        </span>
                     </td>
                     <td class="p-4 text-center">
                         <a href="{{ url_for('admin.view_report_card', student_id=student.id) }}" 
-                           class="bg-institutionalGreen hover:bg-green-700 text-white text-[10px] font-black uppercase tracking-widest py-2 px-3 rounded shadow transition-colors inline-flex items-center">
-                            <i class="fas fa-file-invoice mr-1"></i> Generar Boleta
+                           class="bg-white hover:bg-deepBlue hover:text-white text-deepBlue text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-lg border border-deepBlue border-opacity-20 shadow-sm transition-all inline-flex items-center no-underline">
+                            <i class="fas fa-file-pdf mr-2"></i> Ver Boleta
                         </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="p-12 text-center">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-search text-4xl text-gray-200 mb-4"></i>
+                            <p class="text-gray-500 font-bold uppercase text-sm tracking-widest">No se encontraron resultados</p>
+                            <a href="{{ url_for('admin.list_reports') }}" class="text-deepBlue text-xs font-black uppercase tracking-widest mt-4 hover:underline">Ver todos los alumnos</a>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

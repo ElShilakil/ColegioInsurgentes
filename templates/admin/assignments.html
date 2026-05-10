@@ -3,15 +3,59 @@
 {% block title %}Asignaciones - Control Escolar{% endblock %}
 
 {% block content %}
-<div class="flex flex-col lg:flex-row gap-8">
+<div class="mb-4 flex flex-col gap-4">
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
+    </a>
+    
+    <!-- Filters Toolbar -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ring-1 ring-black ring-opacity-5">
+        <form method="GET" action="{{ url_for('admin.manage_assignments') }}" class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="flex-1 w-full">
+                <label for="q" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Buscar Profesor</label>
+                <div class="relative">
+                    <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Nombre o usuario del docente..." 
+                           class="w-full border-2 border-gray-50 rounded-xl py-2.5 pl-11 pr-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50">
+                    <span class="absolute left-4 top-3 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="w-full md:w-48">
+                <label for="group" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Filtrar Grupo</label>
+                <select name="group" id="group" class="w-full border-2 border-gray-50 rounded-xl py-2.5 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50 appearance-none cursor-pointer">
+                    <option value="">Todos los grupos</option>
+                    {% for g in available_groups %}
+                    {% set val = g.grade ~ "-" ~ g.group %}
+                    <option value="{{ val }}" {% if group_filter == val %}selected{% endif %}>
+                        {{ g.grade }}°{{ g.group }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2 w-full md:w-auto">
+                <button type="submit" class="flex-1 md:flex-none bg-institutionalBlue hover:bg-blue-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all text-sm flex items-center justify-center">
+                    <i class="fas fa-filter mr-2 text-xs"></i> Buscar
+                </button>
+                <a href="{{ url_for('admin.manage_assignments') }}" class="flex-1 md:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
+                    <i class="fas fa-sync-alt mr-2 text-xs"></i> Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Asignación de Grupos</h1>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
     <!-- Assignment Form -->
-    <div class="w-full lg:w-1/3">
-        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-goldenYellow ring-1 ring-skyBlue ring-opacity-20">
-            <h2 class="text-xl font-bold mb-4 text-gray-800 uppercase tracking-tight">Vincular Profesor a Grupo</h2>
+    <div class="lg:col-span-1">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-goldenYellow ring-1 ring-black ring-opacity-5">
+            <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Vincular Profesor</h2>
             <form method="POST">
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2 uppercase">Profesor</label>
-                    <select name="teacher_id" class="w-full border rounded p-2 outline-none focus:ring-2 focus:ring-institutionalBlue" required>
+                    <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Profesor</label>
+                    <select name="teacher_id" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
                         <option value="">Selecciona un profesor...</option>
                         {% for teacher in teachers %}
                         <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
@@ -20,64 +64,72 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <div>
-                        <label class="block text-gray-700 text-sm font-bold mb-2 uppercase">Grado</label>
-                        <select name="grade" class="w-full border rounded p-2" required>
+                        <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Grado</label>
+                        <select name="grade" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
                             <option value="1">1°</option><option value="2">2°</option>
                             <option value="3">3°</option><option value="4">4°</option>
                             <option value="5">5°</option><option value="6">6°</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-gray-700 text-sm font-bold mb-2 uppercase">Grupo</label>
-                        <select name="group" class="w-full border rounded p-2" required>
+                        <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Grupo</label>
+                        <select name="group" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
                             <option value="A">A</option><option value="B">B</option>
                             <option value="C">C</option>
                         </select>
                     </div>
                 </div>
                 <div class="flex flex-col gap-3">
-                    <button type="submit" class="w-full bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-2 rounded transition-colors uppercase tracking-widest text-sm">
+                    <button type="submit" class="w-full bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-3 rounded shadow transition-colors uppercase tracking-widest text-sm">
                         Guardar Asignación
                     </button>
-                    <a href="{{ url_for('admin.admin_dashboard') }}" class="w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded transition-colors uppercase tracking-widest text-sm">
-                        Volver al Dashboard
-                    </a>
+                    <p class="text-[10px] text-gray-400 italic mt-2">
+                        * Un profesor solo puede tener un grupo asignado a la vez.
+                    </p>
                 </div>
             </form>
-            <p class="mt-4 text-xs text-gray-500 italic">* Un profesor solo puede tener un grupo asignado a la vez (Regla 1-a-1).</p>
         </div>
     </div>
 
-    <!-- Assignments List -->
-    <div class="w-full lg:w-2/3">
-        <div class="bg-white p-6 rounded-lg shadow-md ring-1 ring-skyBlue ring-opacity-20">
+    <!-- Assignment Table -->
+    <div class="lg:col-span-2">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ring-1 ring-black ring-opacity-5 flex flex-col max-h-[600px]">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800 uppercase tracking-tight">Grupos Asignados</h2>
-                <div class="relative w-1/2">
-                    <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar asignación..." class="w-full border-2 border-gray-100 rounded-lg py-2 pl-10 pr-4 focus:border-institutionalBlue outline-none transition-colors text-sm">
-                    <span class="absolute left-3 top-2.5 text-gray-400">
-                        <i class="fas fa-search"></i>
-                    </span>
-                </div>
+                <h2 class="text-xl font-bold text-charcoal uppercase tracking-tight">Profesores Vinculados</h2>
+                <span class="text-xs font-bold text-gray-400 uppercase">{{ assignments|length }} vinculados</span>
             </div>
-            <div class="overflow-x-auto">
+            <div class="overflow-y-auto overflow-x-auto flex-1 rounded-lg shadow-inner">
                 <table class="w-full text-left border-collapse" id="dataTable">
-                    <thead>
-                        <tr class="bg-gray-100 border-b">
-                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest">Profesor</th>
-                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest">Email</th>
-                            <th class="p-3 font-semibold text-gray-700 text-center uppercase text-xs tracking-widest">G/G</th>
+                    <thead class="sticky top-0 z-10 bg-offWhite shadow-sm">
+                        <tr class="bg-offWhite border-b">
+                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest bg-offWhite">Profesor</th>
+                            <th class="p-3 font-semibold text-gray-700 uppercase text-xs tracking-widest bg-offWhite">Email</th>
+                            <th class="p-3 font-semibold text-gray-700 text-center uppercase text-xs tracking-widest bg-offWhite">G/G</th>
+                            <th class="p-3 font-semibold text-gray-700 text-center uppercase text-xs tracking-widest bg-offWhite">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-50">
                         {% for assignment in assignments %}
-                        <tr class="border-b hover:bg-gray-50 transition-colors">
-                            <td class="p-3 font-bold">{{ assignment.teacher.full_name }}</td>
-                            <td class="p-3 text-sm text-gray-600">{{ assignment.teacher.email }}</td>
+                        <tr class="hover:bg-gray-50/50 transition-colors">
+                            <td class="p-3 font-bold text-charcoal text-sm">{{ assignment.teacher.full_name }}</td>
+                            <td class="p-3 text-sm text-gray-500">{{ assignment.teacher.username }}</td>
                             <td class="p-3 text-center">
-                                <span class="bg-institutionalBlue text-white px-3 py-1 rounded text-xs font-black uppercase tracking-tighter">
+                                <span class="bg-institutionalBlue text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
                                     {{ assignment.grade }}°{{ assignment.group }}
                                 </span>
+                            </td>
+                            <td class="p-3 text-center flex justify-center">
+                                <button type="button" 
+                                        onclick="confirmAction('{{ url_for('admin.delete_assignment', id=assignment.id) }}', '¿Desvincular Profesor?', 'Esta acción quitará al profesor de este grupo. El docente ya no podrá pasar asistencia ni registrar calificaciones para estos alumnos.', 'Desvincular')"
+                                        class="text-red-600 hover:text-red-800 text-xs font-black uppercase tracking-widest bg-transparent border-0 cursor-pointer">
+                                    <i class="fas fa-unlink"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="p-12 text-center text-gray-400 italic text-sm">
+                                No se encontraron asignaciones con esos criterios.
                             </td>
                         </tr>
                         {% endfor %}

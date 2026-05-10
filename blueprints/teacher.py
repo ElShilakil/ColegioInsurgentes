@@ -77,7 +77,6 @@ def manage_attendance():
     
     if request.method == 'POST':
         for student in students:
-            # Captura el estado enviado por el radio button
             status = request.form.get(f'status_{student.id}')
             if status:
                 att = Attendance.query.filter_by(student_id=student.id, date=selected_date).first()
@@ -109,6 +108,11 @@ def manage_activities():
         flash("No hay un periodo escolar marcado como activo. Contacta al administrador.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
+    assignment = TeacherAssignment.query.filter_by(teacher_id=session['user_id']).first()
+    if not assignment:
+        flash("No tienes un grupo asignado. Contacta al administrador.", "error")
+        return redirect(url_for('teacher.teacher_dashboard'))
+
     if request.method == 'POST':
         subject_id = request.form.get('subject_id')
         name = request.form.get('name')
@@ -117,29 +121,30 @@ def manage_activities():
         percentage = float(request.form.get('percentage'))
         activity_date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        # Validación de fechas contra el rango del trimestre activo
         if active_period.start_date and active_period.end_date:
             if activity_date < active_period.start_date or activity_date > active_period.end_date:
                 flash(f"La fecha de la actividad está fuera del rango de este trimestre.", "error")
                 return redirect(url_for('teacher.manage_activities'))
 
-        # Validación de porcentajes por Materia
+        # Regla de Negocio: La suma de porcentajes es por SALÓN (Grado/Grupo)
         current_sum = db.session.query(db.func.sum(Activity.percentage_value)).filter(
             Activity.subject_id == subject_id,
             Activity.trimester_id == active_period.id,
-            Activity.teacher_id == session['user_id']
+            Activity.grade == assignment.grade,
+            Activity.group == assignment.group
         ).scalar() or 0.0
         
         available = 100.0 - current_sum
         if percentage > available:
-            overage = percentage - available
-            flash(f"Error: Solo te queda {available}% disponible en esta materia. Al intentar agregar {percentage}%, te has pasado por {overage}%.", "error")
+            flash(f"Error: Solo queda {available}% disponible en esta materia para este salón.", "error")
             return redirect(url_for('teacher.manage_activities'))
 
         new_activity = Activity(
-            teacher_id=session['user_id'],
+            teacher_id=session['user_id'], # Referencia de creador
             subject_id=subject_id,
             trimester_id=active_period.id,
+            grade=assignment.grade,   # Pertenece al salón
+            group=assignment.group,   # Pertenece al salón
             name=name,
             type=type,
             date=activity_date,
@@ -150,26 +155,66 @@ def manage_activities():
         flash("Actividad creada con éxito.", "success")
         return redirect(url_for('teacher.manage_activities'))
     
-    subjects = Subject.query.all()
-    activities = Activity.query.filter_by(teacher_id=session['user_id']).order_by(Activity.date.desc()).all()
-    return render_template('teacher/activities.html', subjects=subjects, activities=activities, active_period=active_period)
+    # Filtros
+    q = request.args.get('q', '').strip()
+    subject_filter = request.args.get('subject_filter', '').strip()
+    field_filter = request.args.get('field_filter', '').strip()
+    
+    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.id.desc(), Trimester.id).all()
+    selected_period_id = request.args.get('period_id', str(active_period.id) if active_period else (str(periods[0].id) if periods else None))
+    
+    query = Activity.query.filter_by(grade=assignment.grade, group=assignment.group)
+    
+    if q:
+        query = query.filter(Activity.name.ilike(f"%{q}%"))
+    
+    if subject_filter:
+        query = query.filter(Activity.subject_id == int(subject_filter))
+
+    if field_filter:
+        query = query.join(Subject).filter(Subject.formative_field == field_filter)
+        
+    if selected_period_id:
+        query = query.filter(Activity.trimester_id == int(selected_period_id))
+        
+    activities = query.order_by(Activity.date.desc()).all()
+    subjects = Subject.query.order_by(Subject.name).all()
+    
+    # Obtener campos formativos únicos para el filtro
+    formative_fields = db.session.query(Subject.formative_field).distinct().all()
+    formative_fields = [f[0] for f in formative_fields]
+    
+    return render_template('teacher/activities.html', 
+                           subjects=subjects, 
+                           activities=activities, 
+                           active_period=active_period,
+                           periods=periods,
+                           formative_fields=formative_fields,
+                           q=q,
+                           subject_filter=subject_filter,
+                           field_filter=field_filter,
+                           selected_period_id=int(selected_period_id) if selected_period_id else None)
 
 @teacher_bp.route('/activities/edit/<int:id>', methods=['POST'])
 @login_required(permission='MANAGE_ACTIVITIES')
 def edit_activity(id):
     activity = Activity.query.get_or_404(id)
-    if activity.teacher_id != session['user_id']:
-        flash("No tienes permiso para editar esta actividad.", "error")
+    assignment = TeacherAssignment.query.filter_by(teacher_id=session['user_id']).first()
+    
+    # Validación por SALÓN: El maestro debe ser el titular del salón de la actividad
+    if not assignment or activity.grade != assignment.grade or activity.group != assignment.group:
+        flash("No tienes permiso para editar actividades de otros grupos.", "error")
         return redirect(url_for('teacher.manage_activities'))
     
     name = request.form.get('name')
     percentage = float(request.form.get('percentage'))
     
-    # Validar porcentaje disponible (excluyendo la actividad actual)
+    # Validar porcentaje disponible en el SALÓN
     current_sum = db.session.query(db.func.sum(Activity.percentage_value)).filter(
         Activity.subject_id == activity.subject_id,
         Activity.trimester_id == activity.trimester_id,
-        Activity.teacher_id == session['user_id'],
+        Activity.grade == activity.grade,
+        Activity.group == activity.group,
         Activity.id != id
     ).scalar() or 0.0
     
@@ -182,10 +227,10 @@ def edit_activity(id):
         activity.name = name
         activity.percentage_value = percentage
         db.session.commit()
-        flash("Actividad actualizada con éxito.", "success")
+        flash("Actividad actualizada.", "success")
     except Exception:
         db.session.rollback()
-        flash("Error al actualizar la actividad.", "error")
+        flash("Error al actualizar.", "error")
         
     return redirect(url_for('teacher.manage_activities'))
 
@@ -193,19 +238,21 @@ def edit_activity(id):
 @login_required(permission='MANAGE_ACTIVITIES')
 def delete_activity(id):
     activity = Activity.query.get_or_404(id)
-    if activity.teacher_id != session['user_id']:
+    assignment = TeacherAssignment.query.filter_by(teacher_id=session['user_id']).first()
+
+    # Validación por SALÓN
+    if not assignment or activity.grade != assignment.grade or activity.group != assignment.group:
         flash("No tienes permiso para eliminar esta actividad.", "error")
         return redirect(url_for('teacher.manage_activities'))
     
     try:
-        # Borrado de calificaciones asociadas (Manejo seguro de relación)
         Grade.query.filter_by(activity_id=id).delete()
         db.session.delete(activity)
         db.session.commit()
-        flash("Actividad y calificaciones asociadas eliminadas.", "success")
+        flash("Actividad eliminada con éxito.", "success")
     except Exception:
         db.session.rollback()
-        flash("Error al eliminar la actividad.", "error")
+        flash("Error al eliminar.", "error")
         
     return redirect(url_for('teacher.manage_activities'))
 
@@ -217,6 +264,11 @@ def gradebook():
         flash("No tienes un grupo asignado.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
+    # Filtros
+    q = request.args.get('q', '').strip()
+    subject_filter = request.args.get('subject_filter', '').strip()
+    field_filter = request.args.get('field_filter', '').strip()
+
     periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.id.desc(), Trimester.id).all()
     active_period = get_current_trimester()
     
@@ -225,9 +277,20 @@ def gradebook():
     students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
 
-    activities_query = Activity.query.filter_by(teacher_id=session['user_id'])
+    # REGLA DE ORO: Las actividades se cargan por SALÓN (Grado/Grupo)
+    activities_query = Activity.query.filter_by(grade=assignment.grade, group=assignment.group)
+    
     if selected_period_id:
         activities_query = activities_query.filter_by(trimester_id=int(selected_period_id))
+    
+    if q:
+        activities_query = activities_query.filter(Activity.name.ilike(f"%{q}%"))
+    
+    if subject_filter:
+        activities_query = activities_query.filter(Activity.subject_id == int(subject_filter))
+
+    if field_filter:
+        activities_query = activities_query.join(Subject).filter(Subject.formative_field == field_filter)
     
     activities = activities_query.order_by(Activity.subject_id, Activity.date).all()
     
@@ -240,26 +303,32 @@ def gradebook():
                 grade_obj = Grade.query.filter_by(student_id=student.id, activity_id=activity.id).first()
                 
                 if score_val and score_val.strip() != "":
-                    # Si hay un valor (incluyendo "0")
                     if grade_obj:
                         grade_obj.score = float(score_val)
                     else:
                         new_grade = Grade(student_id=student.id, activity_id=activity.id, score=float(score_val))
                         db.session.add(new_grade)
                 else:
-                    # Si el campo se dejó vacío, eliminamos la calificación si existía
                     if grade_obj:
                         db.session.delete(grade_obj)
         
         db.session.commit()
-        flash("Calificaciones actualizadas con éxito.", "success")
-        return redirect(url_for('teacher.gradebook', period_id=selected_period_id))
+        flash("Calificaciones actualizadas.", "success")
+        return redirect(url_for('teacher.gradebook', period_id=selected_period_id, q=q, subject_filter=subject_filter, field_filter=field_filter))
 
     existing_grades = {(g.student_id, g.activity_id): g.score for g in Grade.query.all()}
+    subjects = Subject.query.order_by(Subject.name).all()
+    formative_fields = db.session.query(Subject.formative_field).distinct().all()
+    formative_fields = [f[0] for f in formative_fields]
     
     return render_template('teacher/gradebook.html', 
                            students=students, 
                            activities=activities, 
                            existing_grades=existing_grades,
                            periods=periods,
+                           subjects=subjects,
+                           formative_fields=formative_fields,
+                           q=q,
+                           subject_filter=subject_filter,
+                           field_filter=field_filter,
                            selected_period_id=int(selected_period_id) if selected_period_id else None)

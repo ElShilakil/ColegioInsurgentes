@@ -15,14 +15,14 @@ def index():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
+        username = request.form.get('username')
         password = request.form.get('password')
         
-        if not re.match(r'^[^@]{5,}@cinsurgentes\.edu\.mx$', email):
-            flash("El correo debe tener al menos 5 caracteres antes del dominio @cinsurgentes.edu.mx", "error")
+        if not username or len(username) < 3:
+            flash("El nombre de usuario debe tener al menos 3 caracteres.", "error")
             return render_template('login.html')
 
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
             if not user.is_active:
@@ -34,7 +34,7 @@ def login():
             session['user_role'] = user.role
             return redirect(url_for('auth.index'))
         
-        flash("Correo o contraseña incorrectos.", "error")
+        flash("Usuario o contraseña incorrectos.", "error")
     return render_template('login.html')
 
 @auth_bp.route('/logout')

@@ -3,44 +3,95 @@
 {% block title %}Registro de Calificaciones - Control Escolar{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-institutionalBlue hover:underline">&larr; Volver al Dashboard</a>
-    <h1 class="text-3xl font-bold text-gray-800 mt-4">Registro de Calificaciones</h1>
-</div>
-
-<div class="mb-6 flex items-center gap-4 bg-white p-4 rounded-lg shadow ring-1 ring-gray-200">
-    <label class="font-bold text-gray-700">Filtrar por Trimestre:</label>
-    <div class="flex gap-2">
-        {% for period in periods %}
-        <a href="{{ url_for('teacher.gradebook', period_id=period.id) }}" 
-           class="px-4 py-2 rounded-full text-sm font-bold transition-colors 
-                  {{ 'bg-institutionalBlue text-white shadow-md' if period.id == selected_period_id else 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-            {{ period.name }}
-        </a>
-        {% endfor %}
+<div class="mb-4 flex flex-col gap-4">
+    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
+    </a>
+    
+    <!-- Filters Toolbar -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ring-1 ring-black ring-opacity-5">
+        <form method="GET" action="{{ url_for('teacher.gradebook') }}" class="flex flex-col md:flex-row gap-4 items-end">
+            <input type="hidden" name="period_id" value="{{ selected_period_id }}">
+            <div class="flex-1 w-full">
+                <label for="q" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Buscar Actividad</label>
+                <div class="relative">
+                    <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Nombre de la actividad..." 
+                           class="w-full border-2 border-gray-50 rounded-xl py-2.5 pl-11 pr-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50">
+                    <span class="absolute left-4 top-3 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="w-full md:w-48">
+                <label for="field_filter" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Campo Formativo</label>
+                <select name="field_filter" id="field_filter" onchange="updateSubjectOptions('field_filter', 'subject_filter')" class="w-full border-2 border-gray-50 rounded-xl py-2.5 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50 appearance-none cursor-pointer">
+                    <option value="">Todos</option>
+                    {% for field in formative_fields %}
+                    <option value="{{ field }}" {% if field_filter == field %}selected{% endif %}>
+                        {{ field }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full md:w-48">
+                <label for="subject_filter" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Materia</label>
+                <select name="subject_filter" id="subject_filter" class="w-full border-2 border-gray-50 rounded-xl py-2.5 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50 appearance-none cursor-pointer">
+                    <option value="" data-field="">Todas</option>
+                    {% for subj in subjects %}
+                    <option value="{{ subj.id }}" data-field="{{ subj.formative_field }}" {% if subject_filter == subj.id|string %}selected{% endif %}>
+                        {{ subj.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2 w-full md:w-auto">
+                <button type="submit" class="flex-1 md:flex-none bg-institutionalBlue hover:bg-blue-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all text-sm flex items-center justify-center">
+                    <i class="fas fa-filter mr-2 text-xs"></i> Buscar
+                </button>
+                <a href="{{ url_for('teacher.gradebook', period_id=selected_period_id) }}" class="flex-1 md:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
+                    <i class="fas fa-sync-alt mr-2 text-xs"></i> Limpiar
+                </a>
+            </div>
+        </form>
     </div>
+
+    <!-- Trimester Filter (Pills) -->
+    <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm ring-1 ring-gray-100">
+        <label class="font-bold text-gray-700 text-sm uppercase tracking-tight">Filtrar por Trimestre:</label>
+        <div class="flex gap-2">
+            {% for period in periods %}
+            <a href="{{ url_for('teacher.gradebook', period_id=period.id, q=q, subject_filter=subject_filter, field_filter=field_filter) }}" 
+               class="px-4 py-1.5 rounded-full text-xs font-black transition-all uppercase tracking-widest
+                      {{ 'bg-institutionalBlue text-white shadow-md' if period.id == selected_period_id else 'bg-gray-100 text-gray-500 hover:bg-gray-200' }}">
+                {{ period.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Registro de Calificaciones</h1>
 </div>
 
 <div class="bg-white p-6 rounded-lg shadow-lg border-t-4 border-institutionalGold">
     <form method="POST">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto overflow-y-auto max-h-[720px] rounded-lg shadow-inner">
             <table class="w-full text-left border-collapse min-w-max">
-                <thead>
-                    <tr class="bg-gray-100 border-b">
-                        <th class="p-4 font-semibold text-gray-700 sticky left-0 bg-gray-100 border-r">Alumno</th>
+                <thead class="sticky top-0 z-20 bg-offWhite shadow-sm">
+                    <tr class="bg-offWhite border-b">
+                        <th class="p-4 font-semibold text-gray-700 sticky left-0 top-0 z-30 bg-offWhite border-r">Alumno</th>
                         {% for activity in activities %}
-                        <th class="p-4 font-semibold text-gray-700 text-center border-r">
-                            <div class="text-xs uppercase text-institutionalBlue">{{ activity.subject.formative_field }}</div>
-                            <div class="text-sm">{{ activity.name }}</div>
-                            <div class="text-xs text-gray-500">{{ activity.percentage_value }}%</div>
+                        <th class="p-4 font-semibold text-gray-700 text-center border-r bg-offWhite">
+                            <div class="text-[10px] uppercase text-institutionalBlue font-black tracking-tighter">{{ activity.subject.formative_field }}</div>
+                            <div class="text-sm font-bold text-charcoal">{{ activity.name }}</div>
+                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{{ activity.percentage_value }}%</div>
                         </th>
                         {% endfor %}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100">
                     {% for student in students %}
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="p-4 font-bold text-gray-800 sticky left-0 bg-white border-r">
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="p-4 font-bold text-gray-800 sticky left-0 bg-white border-r text-sm">
                             {{ student.full_name }}
                         </td>
                         {% for activity in activities %}
@@ -48,10 +99,16 @@
                             <input type="number" step="0.1" min="0" max="10" 
                                    name="score_{{ student.id }}_{{ activity.id }}" 
                                    value="{{ existing_grades.get((student.id, activity.id)) or '' }}"
-                                   class="w-20 border rounded p-1 text-center focus:ring-2 focus:ring-institutionalGold outline-none"
-                                   placeholder="0.0">
+                                   class="w-20 border-2 border-gray-50 rounded-lg p-2 text-center focus:border-institutionalGold focus:ring-0 outline-none transition-all font-bold text-sm bg-gray-50/50"
+                                   placeholder="—">
                         </td>
                         {% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ activities|length + 1 }}" class="p-12 text-center text-gray-400 italic">
+                            No se encontraron actividades registradas con los criterios seleccionados.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -59,17 +116,41 @@
         </div>
 
         <div class="mt-8 flex justify-end gap-4">
-            <button type="submit" class="bg-institutionalBlue hover:bg-blue-900 text-white font-bold py-3 px-10 rounded-lg shadow-md transition-colors">
+            <button type="submit" class="bg-institutionalBlue hover:bg-blue-900 text-white font-black py-3 px-10 rounded-xl shadow-lg transition-all uppercase tracking-widest text-sm">
                 Guardar Calificaciones
             </button>
-            <a href="{{ url_for('teacher.teacher_dashboard') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-10 rounded-lg transition-colors">
+            <a href="{{ url_for('teacher.teacher_dashboard') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-10 rounded-xl transition-all uppercase tracking-widest text-sm no-underline text-center">
                 Regresar al Dashboard
             </a>
         </div>
     </form>
 </div>
 
-<div class="mt-6 p-4 bg-blue-50 text-blue-700 rounded-lg text-sm italic">
-    * Las calificaciones deben estar en una escala del 0.0 al 10.0. Los campos vacíos no se guardarán.
+<div class="mt-6 p-4 bg-blue-50 text-blue-700 rounded-xl text-xs font-medium italic border border-blue-100">
+    <i class="fas fa-info-circle mr-1"></i> Las calificaciones deben estar en una escala del 0.0 al 10.0. Los campos vacíos no se guardarán.
 </div>
+
+<script>
+    function updateSubjectOptions(fieldId, subjectId) {
+        const fieldSelect = document.getElementById(fieldId);
+        const subjectSelect = document.getElementById(subjectId);
+        const selectedField = fieldSelect.value;
+        const options = subjectSelect.options;
+
+        for (let i = 0; i < options.length; i++) {
+            const optionField = options[i].getAttribute('data-field');
+            
+            if (selectedField === "" || optionField === "" || optionField === selectedField) {
+                options[i].hidden = false;
+                options[i].disabled = false;
+            } else {
+                options[i].hidden = true;
+                options[i].disabled = true;
+                if (options[i].selected) {
+                    subjectSelect.value = "";
+                }
+            }
+        }
+    }
+</script>
 {% endblock %}

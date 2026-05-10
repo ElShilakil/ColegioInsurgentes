@@ -3,9 +3,11 @@
 {% block title %}Asistencia - Control Escolar{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="text-institutionalBlue hover:underline">&larr; Volver al Dashboard</a>
-    <h1 class="text-3xl font-bold text-gray-800 mt-4">Control de Asistencia</h1>
+<div class="mb-8 flex flex-col gap-4">
+    <a href="{{ url_for('teacher.teacher_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
+        <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
+    </a>
+    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Control de Asistencia</h1>
 </div>
 
 <div class="bg-white p-8 rounded-lg shadow-lg border-t-4 border-institutionalGreen">
@@ -26,16 +28,16 @@
             </div>
         </div>
 
-        <div class="overflow-x-auto mb-8">
+        <div class="overflow-x-auto overflow-y-auto max-h-[450px] rounded-lg shadow-inner mb-8">
             <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-100 border-b">
-                        <th class="p-4 font-semibold text-gray-700">Alumno</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center">Resumen (A/F/R/J)</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center">Asistencia</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center">Falta</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center">Retardo</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center">Justificada</th>
+                <thead class="sticky top-0 z-10 bg-offWhite shadow-sm">
+                    <tr class="bg-offWhite border-b">
+                        <th class="p-4 font-semibold text-gray-700 bg-offWhite">Alumno</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center bg-offWhite">Resumen (A/F/R/J)</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center bg-offWhite">Asistencia</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center bg-offWhite">Falta</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center bg-offWhite">Retardo</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center bg-offWhite">Justificada</th>
                     </tr>
                 </thead>
                 <tbody>
