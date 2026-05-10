@@ -7,8 +7,30 @@
     <a href="{{ url_for('admin.admin_dashboard') }}" class="inline-flex items-center w-fit px-4 py-2 bg-blue-50 hover:bg-blue-100 text-institutionalBlue font-bold rounded-lg transition-colors no-underline text-sm shadow-sm">
         <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
     </a>
-    <h1 class="text-4xl font-black text-charcoal mt-2 tracking-tighter uppercase">Calendario Académico</h1>
-    <p class="text-gray-500 font-medium text-sm">Gestiona ciclos y define fechas independientes para cada trimestre.</p>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex flex-col gap-1">
+            <h1 class="text-4xl font-black text-charcoal tracking-tighter uppercase">Calendario Académico</h1>
+            <p class="text-gray-500 font-medium text-sm">Gestiona ciclos y define fechas independientes para cada trimestre.</p>
+        </div>
+    
+    <!-- Botón de Siguiente Ciclo Automatizado -->
+    <div class="flex flex-col items-end gap-2">
+        {% if can_start_next %}
+            <button type="button" onclick="openCycleModal()" class="bg-institutionalBlue hover:bg-blue-800 text-white font-black py-3 px-8 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs flex items-center border-b-4 border-blue-900 active:border-b-0 active:translate-y-1">
+                <i class="fas fa-calendar-plus mr-2"></i> Iniciar Ciclo {{ next_name }}
+            </button>
+        {% else %}
+            <div class="bg-amber-50 border-2 border-amber-100 p-4 rounded-2xl flex items-center gap-4 shadow-sm">
+                <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Ciclo actual en curso</span>
+                    <span class="text-xs font-bold text-amber-800">Próxima apertura: {{ last_t3.end_date.strftime('%d/%m/%Y') if last_t3 and last_t3.end_date else 'Pendiente' }}</span>
+                </div>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
@@ -83,22 +105,6 @@
 
     <!-- Panel Lateral -->
     <div class="lg:col-span-1 space-y-8 h-full">
-        <!-- Nuevo Ciclo -->
-        <div class="bg-white p-8 rounded-3xl shadow-xl ring-1 ring-deepBlue ring-opacity-5 border-t-8 border-deepBlue h-auto">
-            <h3 class="text-xl font-black text-charcoal mb-2 uppercase tracking-tighter">Nuevo Ciclo</h3>
-            <form method="POST">
-                <input type="hidden" name="action" value="setup_cycle">
-                <div class="mb-6">
-                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Nombre del Ciclo</label>
-                    <input type="text" name="name" placeholder="Ej: 2025-2026" required
-                           class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-deepBlue focus:bg-white outline-none font-bold text-lg text-charcoal">
-                </div>
-                <button type="submit" class="w-full bg-deepBlue text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-900 transition-all uppercase tracking-widest text-xs">
-                    Crear Ciclo
-                </button>
-            </form>
-        </div>
-
         <!-- Editor de Fechas de Trimestre -->
         <div id="date-editor" class="hidden bg-white p-8 rounded-3xl shadow-xl ring-1 ring-goldenYellow ring-opacity-10 border-t-8 border-goldenYellow">
             <h3 class="text-xl font-black text-charcoal mb-1 uppercase tracking-tighter">Editar Trimestre</h3>
@@ -134,7 +140,55 @@
     </div>
 </div>
 
+<!-- Modal de Confirmación Ciclo Nuevo -->
+<div id="cycleModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true" onclick="closeCycleModal()">
+            <div class="absolute inset-0 bg-charcoal opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border-t-8 border-institutionalBlue">
+            <form action="{{ url_for('admin.start_next_cycle') }}" method="POST">
+                <div class="bg-white px-8 pt-8 pb-4">
+                    <div class="flex items-center gap-6 mb-6">
+                        <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-institutionalBlue shadow-inner">
+                            <i class="fas fa-exclamation-triangle text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-black text-charcoal uppercase tracking-tighter">¿Confirmar Nuevo Ciclo?</h3>
+                            <p class="text-xs font-bold text-blue-400 uppercase tracking-widest">Operación Administrativa Crítica</p>
+                        </div>
+                    </div>
+                    <div class="text-gray-600 text-sm leading-relaxed mb-6 space-y-4">
+                        <p>Esta acción <strong>cerrará el ciclo actual</strong> e iniciará oficialmente el ciclo <strong>{{ next_name }}</strong>.</p>
+                        <p class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs italic">
+                            Los registros de asistencias y actividades partirán de cero para este nuevo periodo. El sistema generará automáticamente los 3 trimestres base con fechas proyectadas.
+                        </p>
+                    </div>
+                    <p class="text-[10px] font-black text-red-500 uppercase tracking-widest text-center border-t border-gray-100 pt-4">¿Deseas proceder con la apertura?</p>
+                </div>
+                <div class="bg-gray-50 px-8 py-6 sm:flex sm:flex-row-reverse gap-4">
+                    <button type="submit" class="w-full inline-flex justify-center rounded-2xl border border-transparent shadow-xl px-8 py-4 bg-institutionalBlue text-xs font-black text-white hover:bg-blue-800 transition-all uppercase tracking-widest sm:w-auto">
+                        Sí, Iniciar Ciclo {{ next_name }}
+                    </button>
+                    <button type="button" onclick="closeCycleModal()" class="mt-3 w-full inline-flex justify-center rounded-2xl border-2 border-gray-100 shadow-sm px-8 py-4 bg-white text-xs font-black text-gray-500 hover:bg-gray-50 transition-all uppercase tracking-widest sm:mt-0 sm:w-auto">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+function openCycleModal() {
+    document.getElementById('cycleModal').classList.remove('hidden');
+}
+
+function closeCycleModal() {
+    document.getElementById('cycleModal').classList.add('hidden');
+}
+
 function editTrimesterDates(id, name, cycle, start, end) {
     document.getElementById('date-editor').classList.remove('hidden');
     document.getElementById('edit-subtitle').innerText = name + ' — ' + cycle;

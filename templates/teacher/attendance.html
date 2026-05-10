@@ -10,13 +10,43 @@
     <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Control de Asistencia</h1>
 </div>
 
+<!-- Filters Toolbar (Standardized) -->
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ring-1 ring-black ring-opacity-5 mb-4">
+    <form method="GET" action="{{ url_for('teacher.manage_attendance') }}" class="flex flex-col md:flex-row gap-4 items-end">
+        <input type="hidden" name="trimester_id" value="{{ selected_trimester_id }}">
+        <div class="flex-1 w-full">
+            <label for="date_filter" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Fecha de Registro</label>
+            <input type="date" name="date" id="date_filter" value="{{ selected_date }}" 
+                   min="{{ selected_trimester.start_date if selected_trimester else '' }}"
+                   max="{{ selected_trimester.end_date if selected_trimester else '' }}"
+                   class="w-full border-2 border-gray-50 rounded-xl py-2 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50"
+                   onchange="this.form.submit()">
+        </div>
+
+        <div class="flex gap-2 w-full md:w-auto">
+            <a href="{{ url_for('teacher.manage_attendance') }}" class="flex-1 md:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
+                <i class="fas fa-sync-alt mr-2 text-xs"></i> Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Trimester Filter (Pills - Standardized) -->
+<div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm ring-1 ring-gray-100 mb-6">
+    <label class="font-bold text-gray-700 text-sm uppercase tracking-tight">Filtrar por Trimestre:</label>
+    <div class="flex gap-2">
+        {% for period in periods %}
+        <a href="{{ url_for('teacher.manage_attendance', trimester_id=period.id) }}" 
+           class="px-4 py-1.5 rounded-full text-xs font-black transition-all uppercase tracking-widest
+                  {{ 'bg-institutionalBlue text-white shadow-md' if period.id == selected_trimester_id else 'bg-gray-100 text-gray-500 hover:bg-gray-200' }}">
+            {{ period.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
 <div class="bg-white p-8 rounded-lg shadow-lg border-t-4 border-institutionalGreen">
     <form method="POST">
         <div class="mb-6 flex flex-wrap items-center gap-6 p-4 bg-gray-50 rounded-lg">
-            <div class="flex items-center gap-2">
-                <label class="font-bold text-gray-700">Fecha de Registro:</label>
-                <input type="date" name="date" value="{{ selected_date }}" class="border rounded p-2 focus:ring-2 focus:ring-institutionalGreen outline-none" onchange="window.location.href='{{ url_for('teacher.manage_attendance') }}?date=' + this.value">
-            </div>
             <button type="button" onclick="markAllPresent()" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-black text-[10px] hover:bg-blue-200 transition-colors uppercase tracking-widest ring-1 ring-blue-200">
                 <i class="fas fa-check-double mr-1"></i> Marcar todos como Presente
             </button>
@@ -43,7 +73,9 @@
                 <tbody>
                     {% for student in students %}
                     <tr class="border-b hover:bg-gray-50 transition-colors">
-                        <td class="p-4 font-medium text-gray-800">{{ student.full_name }}</td>
+                        <td class="p-4 font-medium text-gray-800">
+                            {{ student.full_name }}
+                        </td>
                         <td class="p-4 text-center">
                             {% set s = attendance_summaries.get(student.id, {'Asistencia':0, 'Falta':0, 'Retardo':0, 'Falta Justificada':0}) %}
                             <span class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">

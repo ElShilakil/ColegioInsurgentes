@@ -42,18 +42,14 @@ def seed():
 
         print("Creando materias (Nueva Escuela Mexicana)...")
         subjects_data = [
-            # Lenguajes
             ("Lengua Materna (Español)", "Lenguajes"),
             ("Inglés", "Lenguajes"),
             ("Artes", "Lenguajes"),
-            # Saberes y pensamiento científico
             ("Matemáticas", "Saberes y pensamiento científico"),
             ("Ciencias Naturales", "Saberes y pensamiento científico"),
-            # Ética, naturaleza y sociedades
             ("Conocimiento del Medio", "Ética, naturaleza y sociedades"),
             ("Historia", "Ética, naturaleza y sociedades"),
             ("Geografía", "Ética, naturaleza y sociedades"),
-            # De lo humano y lo comunitario
             ("Formación Cívica y Ética", "De lo humano y lo comunitario"),
             ("Educación Física", "De lo humano y lo comunitario"),
             ("Vida Saludable", "De lo humano y lo comunitario")
@@ -65,63 +61,66 @@ def seed():
             all_subjects.append(s)
         db.session.commit()
 
-        print("Creando ciclo escolar y trimestres...")
-        cycle = SchoolCycle(name="2025-2026", is_active=True)
-        db.session.add(cycle)
+        print("Creando ciclos escolares y trimestres históricos...")
+        # Ciclo 2024-2025
+        cycle_past = SchoolCycle(name="2024-2025", is_active=False)
+        db.session.add(cycle_past)
         db.session.flush()
 
-        t1 = Trimester(cycle_id=cycle.id, name="Septiembre-Noviembre", 
-                       start_date=date(2025, 9, 1), end_date=date(2025, 11, 30), is_active=False)
-        t2 = Trimester(cycle_id=cycle.id, name="Diciembre-Marzo", 
-                       start_date=date(2025, 12, 1), end_date=date(2026, 3, 31), is_active=False)
-        t3 = Trimester(cycle_id=cycle.id, name="Abril-Junio", 
-                       start_date=date(2026, 4, 1), end_date=date(2026, 6, 30), is_active=True)
-        trimesters = [t1, t2, t3]
-        db.session.add_all(trimesters)
+        t1_past = Trimester(cycle_id=cycle_past.id, name="Trimestre 1 (24-25)", 
+                            start_date=date(2024, 8, 26), end_date=date(2024, 11, 22), is_active=False)
+        t2_past = Trimester(cycle_id=cycle_past.id, name="Trimestre 2 (24-25)", 
+                            start_date=date(2024, 11, 25), end_date=date(2025, 3, 21), is_active=False)
+        t3_past = Trimester(cycle_id=cycle_past.id, name="Trimestre 3 (24-25)", 
+                            start_date=date(2025, 3, 24), end_date=date(2025, 7, 11), is_active=False)
+
+        # Ciclo 2025-2026
+        cycle_current = SchoolCycle(name="2025-2026", is_active=True)
+        db.session.add(cycle_current)
+        db.session.flush()
+
+        t1_curr = Trimester(cycle_id=cycle_current.id, name="Trimestre 1 (25-26)", 
+                            start_date=date(2025, 8, 25), end_date=date(2025, 11, 21), is_active=False)
+        t2_curr = Trimester(cycle_id=cycle_current.id, name="Trimestre 2 (25-26)", 
+                            start_date=date(2025, 11, 24), end_date=date(2026, 3, 20), is_active=False)
+        t3_curr = Trimester(cycle_id=cycle_current.id, name="Trimestre 3 (25-26)", 
+                            start_date=date(2026, 3, 23), end_date=date(2026, 7, 10), is_active=True)
+
+        all_trimesters = [t1_past, t2_past, t3_past, t1_curr, t2_curr, t3_curr]
+        db.session.add_all(all_trimesters)
         db.session.commit()
 
-        print("Creando 18 maestros y asignando grupos...")
+        print("Creando maestros y asignando grupos...")
         groups = []
         for g in range(1, 7):
             for section in ['A', 'B', 'C']:
                 groups.append((g, section))
         
         teachers = []
-        password_hash = generate_password_hash("admin") # Contraseña genérica para maestros
+        password_hash = generate_password_hash("admin")
         
         for i, (grade, group) in enumerate(groups):
             gender = random.choice(['H', 'M'])
             first_name = random.choice(NOMBRES_H if gender == 'H' else NOMBRES_M)
             last_p = random.choice(APELLIDOS)
             last_m = random.choice(APELLIDOS)
-            
-            # Formato: nombre.primerapellido (sin dominio)
             username = f"{first_name.lower()}.{last_p.lower()}"
-            
-            # Evitar duplicados de username en seed
             counter = 1
             while User.query.filter_by(username=username).first():
                 username = f"{first_name.lower()}.{last_p.lower()}{counter}"
                 counter += 1
 
-            teacher = User(
-                first_name=first_name,
-                last_name_paternal=last_p,
-                last_name_maternal=last_m,
-                username=username,
-                password_hash=password_hash,
-                role='teacher'
-            )
+            teacher = User(first_name=first_name, last_name_paternal=last_p, last_name_maternal=last_m,
+                          username=username, password_hash=password_hash, role='teacher')
             db.session.add(teacher)
             db.session.flush()
             
             assignment = TeacherAssignment(teacher_id=teacher.id, grade=grade, group=group)
             db.session.add(assignment)
             teachers.append(teacher)
-        
         db.session.commit()
 
-        print("Creando 180 alumnos (10 por grupo)...")
+        print("Creando alumnos...")
         students_by_group = {}
         for grade, group in groups:
             students_by_group[(grade, group)] = []
@@ -134,116 +133,74 @@ def seed():
                 
                 student = Student(
                     curp=generate_curp(first_name, last_p, last_m, birth_date, gender),
-                    first_name=first_name,
-                    last_name_paternal=last_p,
-                    last_name_maternal=last_m,
-                    nombre_tutor=f"{random.choice(NOMBRES_H + NOMBRES_M)} {last_p} {random.choice(APELLIDOS)}",
-                    telefono_tutor=f"55{random.randint(10000000, 99999999)}",
-                    email_tutor=f"tutor_{random.randint(100, 999)}@gmail.com",
-                    grade=grade,
-                    group=group
+                    first_name=first_name, last_name_paternal=last_p, last_name_maternal=last_m,
+                    grade=grade, group=group
                 )
                 db.session.add(student)
                 students_by_group[(grade, group)].append(student)
         db.session.commit()
 
-        print("Generando actividades y calificaciones...")
-        # Tipos de actividad y sus porcentajes sugeridos
-        activity_types = [
-            ("Examen", 50.0),
-            ("Tareas", 20.0),
-            ("Participación", 10.0),
-            ("Proyecto", 20.0)
-        ]
-
-        # Solo generar actividades para trimestres 1 y 2, y tal vez algunas para el 3 (actual)
+        print("Generando historial de actividades y calificaciones (Desde Sep 2024)...")
+        activity_types = [("Examen", 50.0), ("Tareas", 20.0), ("Participación", 10.0), ("Proyecto", 20.0)]
         today = date.today()
         
         for teacher in teachers:
-            # El maestro está asignado a un grupo
             grade = teacher.assignment.grade
             group = teacher.assignment.group
             students = students_by_group[(grade, group)]
             
-            for trim in trimesters:
+            for trim in all_trimesters:
                 if trim.start_date > today:
-                    continue # No hay actividades para el futuro
+                    continue
                 
-                # Para cada materia
                 for subj in all_subjects:
                     for act_name, pct in activity_types:
-                        # Crear actividad
-                        act_date = trim.start_date + timedelta(days=random.randint(0, (min(trim.end_date, today) - trim.start_date).days))
+                        limit_date = min(trim.end_date, today)
+                        days_diff = (limit_date - trim.start_date).days
+                        if days_diff < 1: days_diff = 1
+                        act_date = trim.start_date + timedelta(days=random.randint(0, days_diff))
                         
                         activity = Activity(
-                            teacher_id=teacher.id,
-                            grade=grade,
-                            group=group,
-                            subject_id=subj.id,
-                            trimester_id=trim.id,
-                            name=f"{act_name} - {subj.name}",
-                            type=act_name,
-                            date=act_date,
-                            percentage_value=pct
+                            teacher_id=teacher.id, grade=grade, group=group,
+                            subject_id=subj.id, trimester_id=trim.id,
+                            name=f"{act_name} - {subj.name}", type=act_name,
+                            date=act_date, percentage_value=pct
                         )
                         db.session.add(activity)
                         db.session.flush()
                         
-                        # Calificar a todos los alumnos del grupo
                         for student in students:
                             score = random.uniform(6.0, 10.0)
-                            if random.random() < 0.05: # 5% de probabilidad de reprobar feo
-                                score = random.uniform(5.0, 6.0)
-                            
-                            grade_record = Grade(
-                                student_id=student.id,
-                                activity_id=activity.id,
-                                score=round(score, 1)
-                            )
-                            db.session.add(grade_record)
-        
+                            if random.random() < 0.05: score = random.uniform(5.0, 6.0)
+                            db.session.add(Grade(student_id=student.id, activity_id=activity.id, score=round(score, 1)))
         db.session.commit()
 
-        print("Generando historial de asistencias...")
-        start_date = date(2025, 9, 1)
+        print("Generando historial masivo de asistencias (Lunes a Viernes, desde Sep 2024)...")
+        start_date = date(2024, 9, 1)
         end_date = today
-        
         delta = end_date - start_date
         all_students = Student.query.all()
         
-        # Para optimizar, no agregaremos cada día individualmente en un loop gigante si es muy lento,
-        # pero como son 180 alumnos y ~150 días hábiles, son ~27,000 registros. SQLAlchemy puede manejarlo.
-        
         for i in range(delta.days + 1):
             current_day = start_date + timedelta(days=i)
-            # Saltar fines de semana
-            if current_day.weekday() >= 5:
+            if current_day.weekday() >= 5: # Saltar Sábado y Domingo
                 continue
             
             for student in all_students:
-                # 90% Asistencia, 7% Retardo, 3% Falta
                 rand = random.random()
-                if rand < 0.90:
-                    status = "Asistencia"
-                elif rand < 0.97:
-                    status = "Retardo"
-                else:
-                    status = "Falta"
+                if rand < 0.85: status = "Asistencia"
+                elif rand < 0.93: status = "Retardo"
+                elif rand < 0.97: status = "Falta"
+                else: status = "Falta Justificada"
                 
-                attendance = Attendance(
-                    student_id=student.id,
-                    date=current_day,
-                    status=status
-                )
-                db.session.add(attendance)
+                db.session.add(Attendance(student_id=student.id, date=current_day, status=status))
             
-            # Commit parcial cada 10 días para no saturar memoria
             if i % 10 == 0:
                 db.session.commit()
-                print(f"Progreso de asistencias: {current_day}")
+                print(f"Progreso de asistencias: {current_day} procesado.")
 
         db.session.commit()
-        print("Seeding completado con éxito.")
+        print("Seeding histórico completado con éxito.")
 
 if __name__ == "__main__":
     seed()

@@ -26,41 +26,29 @@ def admin_dashboard():
                            cycle_count=cycle_count,
                            active_period=active_period)
 
+def get_next_cycle_info():
+    """Calcula el nombre y fechas sugeridas para el siguiente ciclo escolar."""
+    last_cycle = SchoolCycle.query.order_by(SchoolCycle.id.desc()).first()
+    if not last_cycle:
+        return "2025-2026", 2025, 2026
+
+    # Intentar extraer años del nombre (formato YYYY-YYYY)
+    match = re.search(r'(\d{4})-(\d{4})', last_cycle.name)
+    if match:
+        start_year = int(match.group(1)) + 1
+        end_year = int(match.group(2)) + 1
+        return f"{start_year}-{end_year}", start_year, end_year
+    
+    # Fallback si el nombre no tiene el formato esperado
+    return "Nuevo Ciclo", date.today().year, date.today().year + 1
+
 @admin_bp.route('/periods', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ASSIGNMENTS') 
 def manage_periods():
     if request.method == 'POST':
         action = request.form.get('action')
         
-        if action == 'setup_cycle':
-            name = request.form.get('name')
-            
-            # VALIDACIÓN ESTRICTA: Consultar Trimestre 3 del ciclo activo actual
-            active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
-            if active_cycle:
-                # El tercer trimestre es el último (ordenado por ID)
-                t3 = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id.desc()).first()
-                if t3 and t3.end_date:
-                    if date.today() < t3.end_date:
-                        flash(f"No se puede crear un nuevo ciclo. El Trimestre 3 del ciclo {active_cycle.name} termina hasta el {t3.end_date.strftime('%d/%m/%Y')}.", "error")
-                        return redirect(url_for('admin.manage_periods'))
-
-            # Crear ciclo (fechas en blanco para trimestres)
-            new_cycle = SchoolCycle(name=name)
-            db.session.add(new_cycle)
-            
-            for i in range(1, 4):
-                t = Trimester(
-                    cycle=new_cycle,
-                    name=f"Trimestre {i}",
-                    is_active=False
-                )
-                db.session.add(t)
-            
-            db.session.commit()
-            flash("Ciclo y trimestres vacíos creados con éxito.", "success")
-            
-        elif action == 'edit_trimester_dates':
+        if action == 'edit_trimester_dates':
             trimester_id = request.form.get('trimester_id')
             new_start = date.fromisoformat(request.form.get('start_date'))
             new_end = date.fromisoformat(request.form.get('end_date'))
@@ -69,7 +57,7 @@ def manage_periods():
                 flash("Error: La fecha de fin debe ser posterior a la de inicio.", "error")
                 return redirect(url_for('admin.manage_periods'))
 
-            t = Trimester.query.get(trimester_id)
+            t = db.session.get(Trimester, trimester_id)
             if t:
                 # Obtener todos los trimestres del ciclo ordenados
                 all_t = Trimester.query.filter_by(cycle_id=t.cycle_id).order_by(Trimester.id).all()
@@ -97,20 +85,89 @@ def manage_periods():
         elif action == 'set_active':
             trimester_id = request.form.get('active_trimester')
             if trimester_id:
-                selected_t = Trimester.query.get(trimester_id)
-                Trimester.query.filter_by(cycle_id=selected_t.cycle_id).update({Trimester.is_active: False})
+                selected_t = db.session.get(Trimester, trimester_id)
+                
+                # Desactivar todos los trimestres de TODOS los ciclos para asegurar unicidad
+                Trimester.query.update({Trimester.is_active: False})
                 selected_t.is_active = True
                 
+                # Sincronizar ciclo activo
                 SchoolCycle.query.update({SchoolCycle.is_active: False})
                 selected_t.cycle.is_active = True
                 
                 db.session.commit()
-                flash(f"{selected_t.name} del ciclo {selected_t.cycle.name} activado.", "success")
+                flash(f"{selected_t.name} del ciclo {selected_t.cycle.name} activado como periodo actual del sistema.", "success")
 
         return redirect(url_for('admin.manage_periods'))
 
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    last_t3 = None
+    if active_cycle:
+        last_t3 = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id.desc()).first()
+    
+    can_start_next = True
+    if last_t3 and last_t3.end_date and date.today() < last_t3.end_date:
+        can_start_next = False
+
+    next_name, _, _ = get_next_cycle_info()
     cycles = SchoolCycle.query.order_by(SchoolCycle.id.desc()).all()
-    return render_template('admin/periods.html', cycles=cycles)
+    
+    return render_template('admin/periods.html', 
+                           cycles=cycles, 
+                           can_start_next=can_start_next, 
+                           next_name=next_name,
+                           last_t3=last_t3)
+
+@admin_bp.route('/cycles/next', methods=['POST'])
+@login_required(permission='MANAGE_ASSIGNMENTS')
+def start_next_cycle():
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    
+    # 1. Validación de Conclusión
+    if active_cycle:
+        t3 = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id.desc()).first()
+        if t3 and t3.end_date and date.today() < t3.end_date:
+            flash(f"El ciclo {active_cycle.name} aún no ha terminado (Finaliza el {t3.end_date.strftime('%d/%m/%Y')}).", "error")
+            return redirect(url_for('admin.manage_periods'))
+
+    # 2. Cálculo Lógico del Nombre y Proyección de Fechas
+    next_name, start_yr, end_year = get_next_cycle_info()
+    
+    # 3. Creación y Activación
+    if active_cycle:
+        active_cycle.is_active = False
+        # Desactivar todos los trimestres
+        Trimester.query.filter_by(cycle_id=active_cycle.id).update({Trimester.is_active: False})
+
+    new_cycle = SchoolCycle(name=next_name, is_active=True)
+    db.session.add(new_cycle)
+    db.session.flush()
+
+    # 4. Generación Automática de Trimestres Default
+    trimesters_config = [
+        (f"Trimestre 1 ({next_name})", date(start_yr, 8, 25), date(start_yr, 11, 21), True),
+        (f"Trimestre 2 ({next_name})", date(start_yr, 11, 24), date(end_year, 3, 20), False),
+        (f"Trimestre 3 ({next_name})", date(end_year, 3, 23), date(end_year, 7, 10), False),
+    ]
+
+    for t_name, start, end, active in trimesters_config:
+        new_t = Trimester(
+            cycle_id=new_cycle.id,
+            name=t_name,
+            start_date=start,
+            end_date=end,
+            is_active=active
+        )
+        db.session.add(new_t)
+
+    try:
+        db.session.commit()
+        flash(f"¡Ciclo {next_name} iniciado con éxito! Los trimestres base han sido generados.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error al iniciar el nuevo ciclo: {str(e)}", "error")
+
+    return redirect(url_for('admin.manage_periods'))
 
 @admin_bp.route('/teachers', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_TEACHERS')
@@ -416,16 +473,27 @@ def manage_assignments():
     assignments = query.order_by(TeacherAssignment.grade, TeacherAssignment.group).all()
 
     # Grupos disponibles (dinámico desde Alumnos activos)
-    available_groups = db.session.query(Student.grade, Student.group).\
+    all_groups = db.session.query(Student.grade, Student.group).\
         filter_by(is_active=True).distinct().\
         order_by(Student.grade, Student.group).all()
+
+    # Mapeo: "Grado-Grupo" -> "Nombre del Profesor"
+    group_to_teacher = {f"{a.grade}-{a.group}": a.teacher.full_name for a in assignments if a.teacher}
+    
+    # Mapeo: "ID del Profesor" -> "Grado°Grupo"
+    teacher_to_group = {a.teacher_id: f"{a.grade}°{a.group}" for a in assignments if a.teacher_id}
+    
+    # Filtrar solo grupos que NO tienen profesor asignado para el formulario
+    unassigned_groups = [g for g in all_groups if f"{g.grade}-{g.group}" not in group_to_teacher]
 
     return render_template('admin/assignments.html', 
                            teachers=teachers, 
                            assignments=assignments,
                            q=q,
                            group_filter=group_filter,
-                           available_groups=available_groups)
+                           available_groups=all_groups, # Para el filtro superior
+                           unassigned_groups=unassigned_groups, # Para el formulario de vinculación
+                           teacher_to_group=teacher_to_group) # Para el JS
 
 @admin_bp.route('/assignments/delete/<int:id>')
 @login_required(permission='MANAGE_ASSIGNMENTS')

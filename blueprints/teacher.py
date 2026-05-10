@@ -58,15 +58,48 @@ def manage_attendance():
     else:
         selected_date = date.today()
 
-    active_period = get_current_trimester()
+    # Nueva Lógica: Solo Ciclo Activo
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    if not active_cycle:
+        flash("No hay un ciclo escolar activo. Contacta al administrador.", "error")
+        return redirect(url_for('teacher.teacher_dashboard'))
+
+    periods = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id).all()
+    
+    selected_trimester_id = request.args.get('trimester_id', type=int)
+    
+    # Identificar el trimestre objetivo
+    target_trimester = None
+    if selected_trimester_id:
+        target_trimester = db.session.get(Trimester, selected_trimester_id)
+    
+    # Si no hay selección manual, buscar el activo del ciclo actual
+    if not target_trimester:
+        target_trimester = Trimester.query.filter_by(cycle_id=active_cycle.id, is_active=True).first()
+    
+    # Fallback al primero del ciclo si nada es activo
+    if not target_trimester and periods:
+        target_trimester = periods[0]
+
+    # Lógica de Fecha (Synchronized)
+    selected_date_str = request.form.get('date') if request.method == 'POST' else request.args.get('date')
+    
+    if selected_date_str:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    elif 'trimester_id' in request.args and target_trimester:
+        # Si el usuario seleccionó un trimestre explícitamente (click en pill), ir al inicio del periodo
+        selected_date = target_trimester.start_date
+    else:
+        # Acceso inicial o sin parámetros explícitos de filtro, mostrar la fecha actual
+        selected_date = date.today()
+
     attendance_summaries = {}
-    if active_period:
+    if target_trimester:
         for student in students:
-            # Resumen de asistencias del trimestre activo
             atts = Attendance.query.filter(
                 Attendance.student_id == student.id,
-                Attendance.date >= active_period.start_date,
-                Attendance.date <= active_period.end_date
+                Attendance.date >= target_trimester.start_date,
+                Attendance.date <= target_trimester.end_date
             ).all()
             
             summary = {"Asistencia": 0, "Falta": 0, "Retardo": 0, "Falta Justificada": 0}
@@ -88,32 +121,39 @@ def manage_attendance():
         
         db.session.commit()
         flash(f"Asistencia del {selected_date} guardada con éxito.", "success")
-        return redirect(url_for('teacher.manage_attendance', date=selected_date))
+        return redirect(url_for('teacher.manage_attendance', date=selected_date, trimester_id=target_trimester.id if target_trimester else None))
 
-    # Obtenemos asistencias existentes
     current_att = {a.student_id: a.status for a in Attendance.query.filter_by(date=selected_date).all()}
     selected_date_is_past = selected_date < date.today()
+    
     return render_template('teacher/attendance.html', 
                            students=students, 
                            selected_date=selected_date, 
                            current_att=current_att, 
                            selected_date_is_past=selected_date_is_past,
-                           attendance_summaries=attendance_summaries)
+                           attendance_summaries=attendance_summaries,
+                           periods=periods,
+                           selected_trimester=target_trimester,
+                           selected_trimester_id=target_trimester.id if target_trimester else None)
 
 @teacher_bp.route('/activities', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ACTIVITIES')
 def manage_activities():
-    active_period = get_current_trimester()
-    if not active_period:
-        flash("No hay un periodo escolar marcado como activo. Contacta al administrador.", "error")
+    # Nueva Lógica: Solo Ciclo Activo
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    if not active_cycle:
+        flash("No hay un ciclo escolar activo. Contacta al administrador.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
+    active_period_system = get_current_trimester() # El marcado globalmente
+    
     assignment = TeacherAssignment.query.filter_by(teacher_id=session['user_id']).first()
     if not assignment:
         flash("No tienes un grupo asignado. Contacta al administrador.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
     if request.method == 'POST':
+        # ... (lógica de guardado permanece igual, usa active_period_system si es necesario para validaciones)
         subject_id = request.form.get('subject_id')
         name = request.form.get('name')
         type = request.form.get('type')
@@ -121,15 +161,15 @@ def manage_activities():
         percentage = float(request.form.get('percentage'))
         activity_date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        if active_period.start_date and active_period.end_date:
-            if activity_date < active_period.start_date or activity_date > active_period.end_date:
+        if active_period_system and active_period_system.start_date and active_period_system.end_date:
+            if activity_date < active_period_system.start_date or activity_date > active_period_system.end_date:
                 flash(f"La fecha de la actividad está fuera del rango de este trimestre.", "error")
                 return redirect(url_for('teacher.manage_activities'))
 
         # Regla de Negocio: La suma de porcentajes es por SALÓN (Grado/Grupo)
         current_sum = db.session.query(db.func.sum(Activity.percentage_value)).filter(
             Activity.subject_id == subject_id,
-            Activity.trimester_id == active_period.id,
+            Activity.trimester_id == active_period_system.id,
             Activity.grade == assignment.grade,
             Activity.group == assignment.group
         ).scalar() or 0.0
@@ -140,11 +180,11 @@ def manage_activities():
             return redirect(url_for('teacher.manage_activities'))
 
         new_activity = Activity(
-            teacher_id=session['user_id'], # Referencia de creador
+            teacher_id=session['user_id'],
             subject_id=subject_id,
-            trimester_id=active_period.id,
-            grade=assignment.grade,   # Pertenece al salón
-            group=assignment.group,   # Pertenece al salón
+            trimester_id=active_period_system.id,
+            grade=assignment.grade,
+            group=assignment.group,
             name=name,
             type=type,
             date=activity_date,
@@ -160,9 +200,16 @@ def manage_activities():
     subject_filter = request.args.get('subject_filter', '').strip()
     field_filter = request.args.get('field_filter', '').strip()
     
-    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.id.desc(), Trimester.id).all()
-    selected_period_id = request.args.get('period_id', str(active_period.id) if active_period else (str(periods[0].id) if periods else None))
+    # Solo periodos del ciclo activo
+    periods = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id).all()
     
+    selected_period_id = request.args.get('period_id', type=int)
+    if not selected_period_id:
+        if active_period_system and active_period_system.cycle_id == active_cycle.id:
+            selected_period_id = active_period_system.id
+        elif periods:
+            selected_period_id = periods[0].id
+
     query = Activity.query.filter_by(grade=assignment.grade, group=assignment.group)
     
     if q:
@@ -175,25 +222,25 @@ def manage_activities():
         query = query.join(Subject).filter(Subject.formative_field == field_filter)
         
     if selected_period_id:
-        query = query.filter(Activity.trimester_id == int(selected_period_id))
+        query = query.filter(Activity.trimester_id == selected_period_id)
+    else:
+        # Si no hay nada, filtrar por el ciclo activo al menos
+        query = query.join(Trimester).filter(Trimester.cycle_id == active_cycle.id)
         
     activities = query.order_by(Activity.date.desc()).all()
     subjects = Subject.query.order_by(Subject.name).all()
     
-    # Obtener campos formativos únicos para el filtro
-    formative_fields = db.session.query(Subject.formative_field).distinct().all()
-    formative_fields = [f[0] for f in formative_fields]
+    formative_fields = [f[0] for f in db.session.query(Subject.formative_field).distinct().all()]
     
     return render_template('teacher/activities.html', 
                            subjects=subjects, 
                            activities=activities, 
-                           active_period=active_period,
                            periods=periods,
                            formative_fields=formative_fields,
                            q=q,
                            subject_filter=subject_filter,
                            field_filter=field_filter,
-                           selected_period_id=int(selected_period_id) if selected_period_id else None)
+                           selected_period_id=selected_period_id)
 
 @teacher_bp.route('/activities/edit/<int:id>', methods=['POST'])
 @login_required(permission='MANAGE_ACTIVITIES')
@@ -259,6 +306,11 @@ def delete_activity(id):
 @teacher_bp.route('/gradebook', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_GRADES')
 def gradebook():
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    if not active_cycle:
+        flash("No hay un ciclo escolar activo.", "error")
+        return redirect(url_for('teacher.teacher_dashboard'))
+
     assignment = TeacherAssignment.query.filter_by(teacher_id=session['user_id']).first()
     if not assignment:
         flash("No tienes un grupo asignado.", "error")
@@ -269,26 +321,30 @@ def gradebook():
     subject_filter = request.args.get('subject_filter', '').strip()
     field_filter = request.args.get('field_filter', '').strip()
 
-    periods = Trimester.query.join(SchoolCycle).order_by(SchoolCycle.id.desc(), Trimester.id).all()
-    active_period = get_current_trimester()
+    active_period_system = get_current_trimester()
+    periods = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id).all()
     
-    selected_period_id = request.args.get('period_id', str(active_period.id) if active_period else (str(periods[0].id) if periods else None))
+    selected_period_id = request.args.get('period_id', type=int)
+    if not selected_period_id:
+        if active_period_system and active_period_system.cycle_id == active_cycle.id:
+            selected_period_id = active_period_system.id
+        elif periods:
+            selected_period_id = periods[0].id
     
     students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
 
-    # REGLA DE ORO: Las actividades se cargan por SALÓN (Grado/Grupo)
     activities_query = Activity.query.filter_by(grade=assignment.grade, group=assignment.group)
     
     if selected_period_id:
-        activities_query = activities_query.filter_by(trimester_id=int(selected_period_id))
+        activities_query = activities_query.filter_by(trimester_id=selected_period_id)
+    else:
+        activities_query = activities_query.join(Trimester).filter(Trimester.cycle_id == active_cycle.id)
     
     if q:
         activities_query = activities_query.filter(Activity.name.ilike(f"%{q}%"))
-    
     if subject_filter:
         activities_query = activities_query.filter(Activity.subject_id == int(subject_filter))
-
     if field_filter:
         activities_query = activities_query.join(Subject).filter(Subject.formative_field == field_filter)
     
@@ -299,27 +355,19 @@ def gradebook():
             for activity in activities:
                 score_key = f'score_{student.id}_{activity.id}'
                 score_val = request.form.get(score_key)
-                
                 grade_obj = Grade.query.filter_by(student_id=student.id, activity_id=activity.id).first()
-                
                 if score_val and score_val.strip() != "":
-                    if grade_obj:
-                        grade_obj.score = float(score_val)
-                    else:
-                        new_grade = Grade(student_id=student.id, activity_id=activity.id, score=float(score_val))
-                        db.session.add(new_grade)
-                else:
-                    if grade_obj:
-                        db.session.delete(grade_obj)
-        
+                    if grade_obj: grade_obj.score = float(score_val)
+                    else: db.session.add(Grade(student_id=student.id, activity_id=activity.id, score=float(score_val)))
+                elif grade_obj:
+                    db.session.delete(grade_obj)
         db.session.commit()
         flash("Calificaciones actualizadas.", "success")
         return redirect(url_for('teacher.gradebook', period_id=selected_period_id, q=q, subject_filter=subject_filter, field_filter=field_filter))
 
     existing_grades = {(g.student_id, g.activity_id): g.score for g in Grade.query.all()}
     subjects = Subject.query.order_by(Subject.name).all()
-    formative_fields = db.session.query(Subject.formative_field).distinct().all()
-    formative_fields = [f[0] for f in formative_fields]
+    formative_fields = [f[0] for f in db.session.query(Subject.formative_field).distinct().all()]
     
     return render_template('teacher/gradebook.html', 
                            students=students, 
@@ -331,4 +379,4 @@ def gradebook():
                            q=q,
                            subject_filter=subject_filter,
                            field_filter=field_filter,
-                           selected_period_id=int(selected_period_id) if selected_period_id else None)
+                           selected_period_id=selected_period_id)

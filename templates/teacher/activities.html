@@ -8,9 +8,12 @@
         <i class="fas fa-arrow-left mr-2"></i> Volver al Dashboard
     </a>
     
+    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Gestión de Actividades</h1>
+
     <!-- Filters Toolbar -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 ring-1 ring-black ring-opacity-5">
         <form method="GET" action="{{ url_for('teacher.manage_activities') }}" class="flex flex-col md:flex-row gap-4 items-end">
+            <input type="hidden" name="period_id" value="{{ selected_period_id }}">
             <div class="flex-1 w-full">
                 <label for="q" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Buscar Actividad</label>
                 <div class="relative">
@@ -54,7 +57,7 @@
         </form>
     </div>
 
-    <!-- Trimester Filter (Gradebook Style) -->
+    <!-- Trimester Filter (Pills) -->
     <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm ring-1 ring-gray-100">
         <label class="font-bold text-gray-700 text-sm uppercase tracking-tight">Filtrar por Trimestre:</label>
         <div class="flex gap-2">
@@ -67,8 +70,6 @@
             {% endfor %}
         </div>
     </div>
-
-    <h1 class="text-3xl font-black text-charcoal mt-2 tracking-tight uppercase">Gestión de Actividades</h1>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
