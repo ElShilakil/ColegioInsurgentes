@@ -48,6 +48,7 @@ class Student(db.Model):
     email_tutor = db.Column(db.String(120))
     grade = db.Column(db.Integer, nullable=False)
     group = db.Column(db.String(1), nullable=False)
+    status = db.Column(db.String(20), default='Activo') # 'Activo' o 'Egresado'
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
 

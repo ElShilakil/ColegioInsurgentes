@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
-from models import User, Student, TeacherAssignment, Subject, Grade, Trimester, SchoolCycle
+from models import User, Student, TeacherAssignment, Subject, Grade, Trimester, SchoolCycle, Activity
 from decorators import login_required
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, cast, String
@@ -110,10 +110,9 @@ def manage_periods():
         can_start_next = False
 
     next_name, _, _ = get_next_cycle_info()
-    cycles = SchoolCycle.query.order_by(SchoolCycle.id.desc()).all()
     
     return render_template('admin/periods.html', 
-                           cycles=cycles, 
+                           active_cycle=active_cycle,
                            can_start_next=can_start_next, 
                            next_name=next_name,
                            last_t3=last_t3)
@@ -133,10 +132,10 @@ def start_next_cycle():
     # 2. Cálculo Lógico del Nombre y Proyección de Fechas
     next_name, start_yr, end_year = get_next_cycle_info()
     
-    # 3. Creación y Activación
+    # 3. Creación y Activación del Nuevo Ciclo
     if active_cycle:
         active_cycle.is_active = False
-        # Desactivar todos los trimestres
+        # Desactivar todos los trimestres del ciclo pasado
         Trimester.query.filter_by(cycle_id=active_cycle.id).update({Trimester.is_active: False})
 
     new_cycle = SchoolCycle(name=next_name, is_active=True)
@@ -160,9 +159,26 @@ def start_next_cycle():
         )
         db.session.add(new_t)
 
+    # 5. Lógica de Promoción de Alumnos (Masiva - ORDEN CORREGIDO)
+    
+    # A) GRADUAR PRIMERO: Alumnos que YA están en 6to pasan a 'Egresado' e Inactivos
+    # Al quedar como is_active=False, se retiran de las vistas operativas del administrador y docente.
+    Student.query.filter(Student.status == 'Activo', Student.grade == 6).update(
+        {Student.status: 'Egresado', Student.is_active: False}, synchronize_session=False
+    )
+    
+    # B) PROMOVER DESPUÉS: Alumnos de 1ro a 5to suben un grado
+    # Al haber graduado ya a los de 6to, esta consulta solo afectará a los que realmente suben.
+    Student.query.filter(Student.status == 'Activo', Student.grade < 6).update(
+        {Student.grade: Student.grade + 1}, synchronize_session=False
+    )
+
+    # 6. Reinicio de Maestros (Limpieza masiva)
+    TeacherAssignment.query.delete()
+
     try:
         db.session.commit()
-        flash(f"¡Ciclo {next_name} iniciado con éxito! Los trimestres base han sido generados.", "success")
+        flash(f"¡Ciclo {next_name} iniciado con éxito! Los alumnos han sido promovidos y las asignaciones de maestros se han reiniciado.", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Error al iniciar el nuevo ciclo: {str(e)}", "error")
@@ -173,6 +189,7 @@ def start_next_cycle():
 @login_required(permission='MANAGE_TEACHERS')
 def manage_teachers():
     if request.method == 'POST':
+        # ... (lógica de guardado permanece igual)
         first_name = request.form.get('first_name')
         last_name_paternal = request.form.get('last_name_paternal')
         last_name_maternal = request.form.get('last_name_maternal')
@@ -279,6 +296,7 @@ def edit_teacher(id):
 @login_required(permission='MANAGE_STUDENTS')
 def manage_students():
     if request.method == 'POST':
+        # ... (lógica de guardado permanece igual)
         curp = request.form.get('curp')
         first_name = request.form.get('first_name')
         last_name_paternal = request.form.get('last_name_paternal')
@@ -321,7 +339,7 @@ def manage_students():
     # Filtros para Alumnos
     q = request.args.get('q', '').strip()
     group_filter = request.args.get('group', '').strip()
-    # Traemos a todos los estudiantes (activos e inactivos)
+    
     query = Student.query
 
     if q:
@@ -446,6 +464,7 @@ def manage_assignments():
     # Filtros para Asignaciones
     q = request.args.get('q', '').strip()
     group_filter = request.args.get('group', '').strip()
+
     query = TeacherAssignment.query.join(User)
 
     if q:
@@ -473,27 +492,16 @@ def manage_assignments():
     assignments = query.order_by(TeacherAssignment.grade, TeacherAssignment.group).all()
 
     # Grupos disponibles (dinámico desde Alumnos activos)
-    all_groups = db.session.query(Student.grade, Student.group).\
+    available_groups = db.session.query(Student.grade, Student.group).\
         filter_by(is_active=True).distinct().\
         order_by(Student.grade, Student.group).all()
-
-    # Mapeo: "Grado-Grupo" -> "Nombre del Profesor"
-    group_to_teacher = {f"{a.grade}-{a.group}": a.teacher.full_name for a in assignments if a.teacher}
-    
-    # Mapeo: "ID del Profesor" -> "Grado°Grupo"
-    teacher_to_group = {a.teacher_id: f"{a.grade}°{a.group}" for a in assignments if a.teacher_id}
-    
-    # Filtrar solo grupos que NO tienen profesor asignado para el formulario
-    unassigned_groups = [g for g in all_groups if f"{g.grade}-{g.group}" not in group_to_teacher]
 
     return render_template('admin/assignments.html', 
                            teachers=teachers, 
                            assignments=assignments,
                            q=q,
                            group_filter=group_filter,
-                           available_groups=all_groups, # Para el filtro superior
-                           unassigned_groups=unassigned_groups, # Para el formulario de vinculación
-                           teacher_to_group=teacher_to_group) # Para el JS
+                           available_groups=available_groups)
 
 @admin_bp.route('/assignments/delete/<int:id>')
 @login_required(permission='MANAGE_ASSIGNMENTS')
@@ -568,8 +576,22 @@ def list_reports():
 @login_required(permission='VIEW_REPORTS')
 def view_report_card(student_id):
     student = Student.query.get_or_404(student_id)
-    periods = Trimester.query.join(SchoolCycle).order_by(Trimester.start_date.desc(), Trimester.id).all()
-    grades = Grade.query.filter_by(student_id=student_id).all()
+    
+    # 1. Identificar el Ciclo Escolar Activo
+    active_cycle = SchoolCycle.query.filter_by(is_active=True).first()
+    if not active_cycle:
+        flash("No hay un ciclo escolar activo para generar boletas.", "error")
+        return redirect(url_for('admin.list_reports'))
+
+    # 2. Obtener SOLO los trimestres del ciclo activo
+    periods = Trimester.query.filter_by(cycle_id=active_cycle.id).order_by(Trimester.id).all()
+    period_ids = [p.id for p in periods]
+
+    # 3. Obtener calificaciones del alumno vinculadas SOLO a esos trimestres
+    grades = Grade.query.join(Activity).filter(
+        Grade.student_id == student_id,
+        Activity.trimester_id.in_(period_ids)
+    ).all()
     
     subject_data = {}
     grouped_scores = {}
@@ -579,7 +601,7 @@ def view_report_card(student_id):
         subj = activity.subject
         trimester_id = activity.trimester_id
         
-        if trimester_id is None: continue
+        if trimester_id not in period_ids: continue # Doble validación de seguridad
 
         if subj.id not in subject_data:
             subject_data[subj.id] = {
@@ -594,7 +616,6 @@ def view_report_card(student_id):
         if trimester_id not in grouped_scores[subj.id]:
             grouped_scores[subj.id][trimester_id] = []
             
-        # Almacenamos tanto el puntaje como el peso de la actividad
         grouped_scores[subj.id][trimester_id].append({
             'score': g.score,
             'weight': activity.percentage_value
@@ -603,7 +624,6 @@ def view_report_card(student_id):
     for subj_id, periods_scores in grouped_scores.items():
         for t_id, scores_data in periods_scores.items():
             if scores_data:
-                # Cálculo de promedio ponderado: (Suma de Calificación * Peso) / Suma de Pesos
                 total_weighted_score = sum(s['score'] * (s['weight'] / 100.0) for s in scores_data)
                 total_weight_percentage = sum(s['weight'] for s in scores_data)
                 
@@ -638,4 +658,5 @@ def view_report_card(student_id):
                            student=student, 
                            field_data=field_data, 
                            periods=periods,
+                           active_cycle=active_cycle,
                            today=datetime.now())

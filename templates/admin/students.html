@@ -137,9 +137,15 @@
                                 <div class="text-[10px] font-mono text-gray-400 uppercase">{{ student.curp }}</div>
                             </td>
                             <td class="p-4 text-center">
-                                <span class="text-[10px] font-black bg-sky-50 text-deepBlue px-2.5 py-1 rounded-full border border-sky-100">
-                                    {{ student.grade }}°{{ student.group }}
-                                </span>
+                                {% if student.status == 'Egresado' %}
+                                    <span class="text-[10px] font-black bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full border border-gray-200 uppercase tracking-widest">
+                                        (Egresado)
+                                    </span>
+                                {% else %}
+                                    <span class="text-[10px] font-black bg-sky-50 text-deepBlue px-2.5 py-1 rounded-full border border-sky-100">
+                                        {{ student.grade }}°{{ student.group }}
+                                    </span>
+                                {% endif %}
                             </td>
                             <td class="p-4 text-center">
                                 {% if student.is_active %}
@@ -169,7 +175,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="3" class="p-12 text-center text-gray-400 italic">
+                            <td colspan="4" class="p-12 text-center text-gray-400 italic">
                                 No se encontraron estudiantes con esos criterios.
                             </td>
                         </tr>

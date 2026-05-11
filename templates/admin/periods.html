@@ -34,29 +34,27 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-    <!-- Listado de Ciclos y Trimestres -->
-    <div class="lg:col-span-2 flex flex-col max-h-[750px]">
-        <form method="POST" class="flex flex-col h-full overflow-hidden">
+    <!-- Listado del Ciclo Activo -->
+    <div class="lg:col-span-2 flex flex-col">
+        {% if active_cycle %}
+        <form method="POST" class="flex flex-col h-full">
             <input type="hidden" name="action" value="set_active">
             
-            <div class="flex-grow overflow-y-auto pr-2 space-y-8" style="max-height: 750px;">
-                {% for cycle in cycles %}
-                <div class="bg-white rounded-3xl shadow-xl overflow-hidden ring-1 {{ 'ring-emeraldGreen ring-opacity-50 shadow-emerald-100' if cycle.is_active else 'ring-gray-100' }}">
-                    <div class="p-6 flex justify-between items-center {{ 'bg-emerald-50' if cycle.is_active else 'bg-gray-50' }} border-b border-gray-100">
-                        <h2 class="text-2xl font-black {{ 'text-emeraldGreen' if cycle.is_active else 'text-charcoal' }} tracking-tighter">
-                            CICLO {{ cycle.name }}
+            <div class="space-y-8">
+                <div class="bg-white rounded-3xl shadow-xl overflow-hidden ring-1 ring-emeraldGreen ring-opacity-50 shadow-emerald-100">
+                    <div class="p-6 flex justify-between items-center bg-emerald-50 border-b border-gray-100">
+                        <h2 class="text-2xl font-black text-emeraldGreen tracking-tighter">
+                            CICLO {{ active_cycle.name }}
                         </h2>
-                        {% if cycle.is_active %}
                         <span class="flex items-center gap-2 px-4 py-2 bg-emeraldGreen text-white text-[10px] font-black uppercase rounded-full tracking-widest">
                             Ciclo en curso
                         </span>
-                        {% endif %}
                     </div>
 
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <tbody class="divide-y divide-gray-100">
-                                {% for t in cycle.trimesters %}
+                                {% for t in active_cycle.trimesters %}
                                 <tr class="{{ 'bg-emerald-50/20' if t.is_active else '' }} hover:bg-gray-50/50 transition-colors">
                                     <td class="p-5 text-center w-20">
                                         <label class="relative flex items-center justify-center cursor-pointer">
@@ -81,7 +79,7 @@
                                     </td>
                                     <td class="p-5 text-center flex justify-center">
                                         <button type="button" 
-                                                onclick="editTrimesterDates({{ t.id }}, '{{ t.name }}', '{{ cycle.name }}', '{{ t.start_date if t.start_date else '' }}', '{{ t.end_date if t.end_date else '' }}')"
+                                                onclick="editTrimesterDates({{ t.id }}, '{{ t.name }}', '{{ active_cycle.name }}', '{{ t.start_date if t.start_date else '' }}', '{{ t.end_date if t.end_date else '' }}')"
                                                 class="text-deepBlue hover:text-blue-900 text-xs font-black uppercase tracking-widest">
                                             <i class="fas fa-calendar-alt"></i>
                                         </button>
@@ -92,7 +90,6 @@
                         </table>
                     </div>
                 </div>
-                {% endfor %}
             </div>
 
             <div class="sticky bottom-0 bg-offWhite py-6 flex justify-center z-10 border-t border-gray-100">
@@ -101,6 +98,12 @@
                 </button>
             </div>
         </form>
+        {% else %}
+        <div class="bg-white p-12 rounded-3xl shadow-xl text-center border-2 border-dashed border-gray-200">
+            <i class="fas fa-calendar-times text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500 font-bold uppercase tracking-widest text-sm">No hay un ciclo escolar activo actualmente.</p>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Panel Lateral -->
@@ -161,9 +164,15 @@
                     </div>
                     <div class="text-gray-600 text-sm leading-relaxed mb-6 space-y-4">
                         <p>Esta acción <strong>cerrará el ciclo actual</strong> e iniciará oficialmente el ciclo <strong>{{ next_name }}</strong>.</p>
-                        <p class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs italic">
-                            Los registros de asistencias y actividades partirán de cero para este nuevo periodo. El sistema generará automáticamente los 3 trimestres base con fechas proyectadas.
-                        </p>
+                        <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 text-xs text-amber-800 space-y-2">
+                            <p class="font-black uppercase tracking-tight"><i class="fas fa-exclamation-triangle mr-1"></i> Impacto del Cambio de Ciclo:</p>
+                            <ul class="list-disc ml-4 space-y-1">
+                                <li><strong>Promoción:</strong> Alumnos de 1° a 5° subirán automáticamente un grado.</li>
+                                <li><strong>Graduación:</strong> Alumnos de 6° grado pasarán a estatus 'Egresado'.</li>
+                                <li><strong>Limpieza:</strong> Se borrarán todas las vinculaciones de maestros para que los reasignes.</li>
+                                <li><strong>Historial:</strong> Las calificaciones y asistencias pasadas se conservarán para consulta.</li>
+                            </ul>
+                        </div>
                     </div>
                     <p class="text-[10px] font-black text-red-500 uppercase tracking-widest text-center border-t border-gray-100 pt-4">¿Deseas proceder con la apertura?</p>
                 </div>

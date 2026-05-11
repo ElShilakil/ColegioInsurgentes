@@ -18,7 +18,7 @@ def teacher_dashboard():
         flash("No tienes un grupo asignado. Contacta al administrador.", "error")
         return render_template('teacher/dashboard.html', assignment=None)
     
-    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
+    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True, status='Activo').all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
     
     active_period = get_current_trimester()
@@ -49,7 +49,7 @@ def manage_attendance():
         flash("No tienes un grupo asignado.", "error")
         return redirect(url_for('teacher.teacher_dashboard'))
 
-    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
+    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True, status='Activo').all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
     
     selected_date_str = request.form.get('date') if request.method == 'POST' else request.args.get('date')
@@ -331,7 +331,7 @@ def gradebook():
         elif periods:
             selected_period_id = periods[0].id
     
-    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True).all()
+    students = Student.query.filter_by(grade=assignment.grade, group=assignment.group, is_active=True, status='Activo').all()
     students = sorted(students, key=lambda x: x.last_name_paternal)
 
     activities_query = Activity.query.filter_by(grade=assignment.grade, group=assignment.group)

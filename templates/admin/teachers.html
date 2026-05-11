@@ -38,7 +38,6 @@
         <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-deepBlue ring-1 ring-black ring-opacity-5">
             <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Registrar Profesor</h2>
             <form method="POST">
-                <!-- ... (form fields) ... -->
                 <div class="mb-4">
                     <label class="block text-charcoal text-xs font-bold uppercase mb-2">Nombre(s)</label>
                     <input type="text" name="first_name" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras" required>
@@ -55,7 +54,7 @@
                 </div>
                 <div class="mb-4">
                     <label class="block text-charcoal text-xs font-bold uppercase mb-2">Nombre de Usuario</label>
-                    <input type="text" name="username" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" placeholder="ej. nombre.apellido" pattern="[a-zA-Z0-9._]{3,}" title="Mínimo 3 caracteres, letras, números, puntos o guiones bajos" required>
+                    <input type="text" name="username" class="w-full border-2 border-gray-100 rounded p-2 focus:border-deepBlue outline-none transition-colors" placeholder="nombre.apellido" pattern="[a-zA-Z0-9._]{3,}" title="Mínimo 3 caracteres, letras, números, puntos o guiones bajos" required>
                 </div>
                 <div class="mb-6">
                     <label class="block text-charcoal text-xs font-bold uppercase mb-2">Contraseña</label>
@@ -80,7 +79,6 @@
             <div class="overflow-y-auto overflow-x-auto flex-1 rounded-lg shadow-inner">
                 <table class="w-full text-left border-collapse">
                     <thead class="sticky top-0 z-10 bg-offWhite shadow-sm">
-                        <!-- ... (thead) ... -->
                         <tr class="bg-offWhite text-gray-500 border-b border-gray-100">
                             <th class="p-4 font-bold uppercase text-[10px] tracking-widest bg-offWhite">Profesor</th>
                             <th class="p-4 font-bold uppercase text-[10px] tracking-widest text-center bg-offWhite">Grupo Asignado</th>
@@ -91,7 +89,6 @@
                     <tbody class="divide-y divide-gray-50">
                         {% for teacher in teachers %}
                         <tr class="hover:bg-gray-50/50 transition-colors">
-                            <!-- ... (teacher rows) ... -->
                             <td class="p-4 text-sm">
                                 <div class="font-bold {{ 'text-charcoal' if teacher.is_active else 'text-gray-400 italic' }}">{{ teacher.full_name }}</div>
                                 <div class="text-[10px] text-gray-400 font-mono">{{ teacher.username }}</div>
