@@ -463,7 +463,6 @@ def manage_assignments():
         
     # Filtros para Asignaciones
     q = request.args.get('q', '').strip()
-    group_filter = request.args.get('group', '').strip()
 
     query = TeacherAssignment.query.join(User)
 
@@ -476,32 +475,39 @@ def manage_assignments():
             User.username.ilike(search)
         ))
 
-    if group_filter:
-        if '-' in group_filter:
-            try:
-                g_grade, g_group = group_filter.split('-')
-                query = query.filter(TeacherAssignment.grade == g_grade, TeacherAssignment.group == g_group.upper())
-            except ValueError: pass
-        else:
-            query = query.filter(or_(
-                cast(TeacherAssignment.grade, String).ilike(f"%{group_filter}%"),
-                TeacherAssignment.group.ilike(f"%{group_filter}%")
-            ))
+    # Profesores disponibles (activos y sin grupo asignado)
+    assigned_teacher_ids = [a.teacher_id for a in TeacherAssignment.query.filter(TeacherAssignment.teacher_id.isnot(None)).all()]
+    available_teachers = User.query.filter(
+        User.role == 'teacher',
+        User.is_active == True,
+        ~User.id.in_(assigned_teacher_ids)
+    ).all()
 
-    teachers = User.query.filter_by(role='teacher', is_active=True).all()
-    assignments = query.order_by(TeacherAssignment.grade, TeacherAssignment.group).all()
+    # Grupos asignados actualmente
+    assigned_groups = [(a.grade, a.group) for a in TeacherAssignment.query.all()]
 
-    # Grupos disponibles (dinámico desde Alumnos activos)
-    available_groups = db.session.query(Student.grade, Student.group).\
+    # Grupos reales (basados en alumnos activos)
+    all_real_groups = db.session.query(Student.grade, Student.group).\
         filter_by(is_active=True).distinct().\
         order_by(Student.grade, Student.group).all()
+    
+    # Filtrar grupos que NO tienen profesor asignado
+    unassigned_groups = [g for g in all_real_groups if (g.grade, g.group) not in assigned_groups]
+
+    # Organizar grupos por grado para el frontend
+    available_by_grade = {}
+    for g in unassigned_groups:
+        if g.grade not in available_by_grade:
+            available_by_grade[g.grade] = []
+        available_by_grade[g.grade].append(g.group)
+
+    assignments = query.order_by(TeacherAssignment.grade, TeacherAssignment.group).all()
 
     return render_template('admin/assignments.html', 
-                           teachers=teachers, 
+                           teachers=available_teachers, 
                            assignments=assignments,
                            q=q,
-                           group_filter=group_filter,
-                           available_groups=available_groups)
+                           available_by_grade=available_by_grade)
 
 @admin_bp.route('/assignments/delete/<int:id>')
 @login_required(permission='MANAGE_ASSIGNMENTS')

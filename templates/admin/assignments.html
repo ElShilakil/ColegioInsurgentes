@@ -21,18 +21,6 @@
                     </span>
                 </div>
             </div>
-            <div class="w-full md:w-48">
-                <label for="group" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Grupo</label>
-                <select name="group" id="group" class="w-full border-2 border-gray-50 rounded-xl py-2.5 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50 appearance-none cursor-pointer">
-                    <option value="">Todos los grupos</option>
-                    {% for g in available_groups %}
-                    {% set val = g.grade ~ "-" ~ g.group %}
-                    <option value="{{ val }}" {% if group_filter == val %}selected{% endif %}>
-                        {{ g.grade }}°{{ g.group }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
             <div class="flex gap-2 w-full md:w-auto">
                 <button type="submit" class="flex-1 md:flex-none bg-institutionalBlue hover:bg-blue-800 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all text-sm flex items-center justify-center">
                     <i class="fas fa-filter mr-2 text-xs"></i> Buscar
@@ -50,11 +38,12 @@
     <div class="lg:col-span-1">
         <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-goldenYellow ring-1 ring-black ring-opacity-5">
             <h2 class="text-xl font-bold mb-4 text-charcoal uppercase tracking-tight">Vincular Profesor</h2>
-            <form method="POST">
+            {% if teachers and available_by_grade %}
+            <form method="POST" id="assignmentForm">
                 <div class="mb-4">
                     <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Profesor</label>
-                    <select name="teacher_id" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
-                        <option value="">Selecciona un profesor...</option>
+                    <select name="teacher_id" id="teacher_select" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
+                        <option value="">Selecciona un profesor disponible...</option>
                         {% for teacher in teachers %}
                         <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
                         {% endfor %}
@@ -63,17 +52,17 @@
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <div>
                         <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Grado</label>
-                        <select name="grade" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
-                            <option value="1">1°</option><option value="2">2°</option>
-                            <option value="3">3°</option><option value="4">4°</option>
-                            <option value="5">5°</option><option value="6">6°</option>
+                        <select name="grade" id="grade_select" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
+                            <option value="">Grado...</option>
+                            {% for grade in available_by_grade.keys()|sort %}
+                            <option value="{{ grade }}">{{ grade }}°</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div>
                         <label class="block text-gray-700 text-xs font-bold mb-2 uppercase tracking-widest">Grupo</label>
-                        <select name="group" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required>
-                            <option value="A">A</option><option value="B">B</option>
-                            <option value="C">C</option>
+                        <select name="group" id="group_select" class="w-full border-2 border-gray-100 rounded p-2 outline-none focus:border-institutionalBlue transition-colors" required disabled>
+                            <option value="">Grupo...</option>
                         </select>
                     </div>
                 </div>
@@ -82,10 +71,22 @@
                         Guardar Asignación
                     </button>
                     <p class="text-[10px] text-gray-400 italic mt-2">
-                        * Un profesor solo puede tener un grupo asignado a la vez.
+                        * Solo se muestran profesores y grupos que no tienen una vinculación activa.
                     </p>
                 </div>
             </form>
+            {% else %}
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                <i class="fas fa-info-circle text-institutionalBlue mb-2 text-xl"></i>
+                <p class="text-xs text-blue-800 font-bold uppercase tracking-tight">
+                    {% if not teachers %}
+                        No hay profesores disponibles (sin grupo).
+                    {% else %}
+                        No hay grupos vacantes con alumnos.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -144,4 +145,55 @@
         </div>
     </div>
 </div>
+
+<script>
+    const availableByGrade = {{ available_by_grade|tojson }};
+    const form = document.getElementById('assignmentForm');
+    const gradeSelect = document.getElementById('grade_select');
+    const groupSelect = document.getElementById('group_select');
+
+    if (gradeSelect) {
+        gradeSelect.addEventListener('change', function() {
+            const grade = this.value;
+            groupSelect.innerHTML = '<option value="">Grupo...</option>';
+            
+            if (grade && availableByGrade[grade]) {
+                availableByGrade[grade].forEach(group => {
+                    const opt = document.createElement('option');
+                    opt.value = group;
+                    opt.textContent = group;
+                    groupSelect.appendChild(opt);
+                });
+                groupSelect.disabled = false;
+            } else {
+                groupSelect.disabled = true;
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (form.dataset.confirmed === "true") return true;
+            e.preventDefault();
+            
+            // Ya no hay conflictos posibles porque el UI filtra lo disponible,
+            // pero mantenemos el modal por consistencia visual si se desea.
+            const selectedTeacherName = document.getElementById('teacher_select').options[document.getElementById('teacher_select').selectedIndex].text;
+            const grade = gradeSelect.value;
+            const group = groupSelect.value;
+            
+            const title = "Confirmar Asignación";
+            const message = `¿Estás seguro de asignar al profesor "${selectedTeacherName}" al grupo ${grade}°${group}?`;
+            
+            const confirmBtn = document.getElementById('confirmBtn');
+            confirmAction('#', title, message, 'Confirmar', 'warning');
+            
+            confirmBtn.onclick = function(event) {
+                event.preventDefault();
+                form.dataset.confirmed = "true";
+                form.submit();
+            };
+        });
+    }
+</script>
 {% endblock %}
