@@ -134,7 +134,8 @@ def manage_attendance():
                            attendance_summaries=attendance_summaries,
                            periods=periods,
                            selected_trimester=target_trimester,
-                           selected_trimester_id=target_trimester.id if target_trimester else None)
+                           selected_trimester_id=target_trimester.id if target_trimester else None,
+                           today=date.today())
 
 @teacher_bp.route('/activities', methods=['GET', 'POST'])
 @login_required(permission='MANAGE_ACTIVITIES')

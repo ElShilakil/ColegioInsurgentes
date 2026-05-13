@@ -18,12 +18,16 @@
             <label for="date_filter" class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Fecha de Registro</label>
             <input type="date" name="date" id="date_filter" value="{{ selected_date }}" 
                    min="{{ selected_trimester.start_date if selected_trimester else '' }}"
-                   max="{{ selected_trimester.end_date if selected_trimester else '' }}"
+                   max="{{ today.strftime('%Y-%m-%d') }}"
+                   onclick="this.showPicker()"
                    class="w-full border-2 border-gray-50 rounded-xl py-2 px-4 focus:border-institutionalBlue focus:ring-0 outline-none transition-all text-sm bg-gray-50"
                    onchange="this.form.submit()">
         </div>
 
         <div class="flex gap-2 w-full md:w-auto">
+            <a href="{{ url_for('teacher.manage_attendance', date=today.strftime('%Y-%m-%d')) }}" class="flex-1 md:flex-none bg-blue-100 hover:bg-blue-200 text-institutionalBlue font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
+                <i class="fas fa-calendar-day mr-2 text-xs"></i> Hoy
+            </a>
             <a href="{{ url_for('teacher.manage_attendance') }}" class="flex-1 md:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-6 rounded-xl transition-all text-sm flex items-center justify-center">
                 <i class="fas fa-sync-alt mr-2 text-xs"></i> Limpiar
             </a>

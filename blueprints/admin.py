@@ -281,6 +281,9 @@ def edit_teacher(id):
             
             new_password = request.form.get('password')
             if new_password:
+                if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$', new_password):
+                    flash("La nueva contraseña debe contener mayúsculas, minúsculas y números.", "error")
+                    return redirect(url_for('admin.edit_teacher', id=id))
                 teacher.set_password(new_password)
                 
             db.session.commit()
@@ -483,8 +486,8 @@ def manage_assignments():
         ~User.id.in_(assigned_teacher_ids)
     ).all()
 
-    # Grupos asignados actualmente
-    assigned_groups = [(a.grade, a.group) for a in TeacherAssignment.query.all()]
+    # Grupos asignados actualmente (que tienen profesor)
+    assigned_groups = [(a.grade, a.group) for a in TeacherAssignment.query.filter(TeacherAssignment.teacher_id.isnot(None)).all()]
 
     # Grupos reales (basados en alumnos activos)
     all_real_groups = db.session.query(Student.grade, Student.group).\

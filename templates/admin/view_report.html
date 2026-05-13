@@ -44,7 +44,7 @@
             </div>
             <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Tutor</label>
-                <p class="text-sm font-bold text-gray-700">{{ student.nombre_tutor or 'N/A' }}</p>
+                <p class="text-sm font-bold text-gray-700">{{ student.nombre_tutor if student.nombre_tutor and student.nombre_tutor.strip() else 'N/A' }}</p>
             </div>
         </div>
 
